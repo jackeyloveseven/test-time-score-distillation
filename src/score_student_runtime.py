@@ -47,6 +47,7 @@ class ScoreResidualStudentRuntime:
         carrier_strength: float = 0.75,
         carrier_highpass_gain: float = 0.0,
         target_kind: str = "unknown",
+        conditioning_mode: str = "style_id",
     ) -> None:
         self.model = model
         self.style_to_idx = dict(style_to_idx)
@@ -58,6 +59,7 @@ class ScoreResidualStudentRuntime:
         self.carrier_strength = float(carrier_strength)
         self.carrier_highpass_gain = float(carrier_highpass_gain)
         self.target_kind = str(target_kind)
+        self.conditioning_mode = str(conditioning_mode)
 
     @classmethod
     def from_checkpoint(
@@ -85,6 +87,7 @@ class ScoreResidualStudentRuntime:
             carrier_strength=float(carrier.get("strength", 0.75)),
             carrier_highpass_gain=float(carrier.get("highpass_gain", 0.0)),
             target_kind=str(ckpt.get("target_kind", "unknown")),
+            conditioning_mode=str(config.conditioning_mode),
         )
 
     def _ids_to_tensors(
@@ -98,7 +101,10 @@ class ScoreResidualStudentRuntime:
         try:
             style_idx = [self.style_to_idx[item] for item in style_ids]
         except KeyError as exc:
-            raise KeyError(f"Unknown style id {exc.args[0]!r}; known={sorted(self.style_to_idx)}") from exc
+            if self.conditioning_mode == "image_code":
+                style_idx = [0] * batch_size
+            else:
+                raise KeyError(f"Unknown style id {exc.args[0]!r}; known={sorted(self.style_to_idx)}") from exc
         try:
             prompt_idx = [self.prompt_to_idx[item] for item in prompt_ids]
         except KeyError as exc:
@@ -114,6 +120,7 @@ class ScoreResidualStudentRuntime:
         timestep: float | Tensor,
         style_id: str | Sequence[str],
         prompt_id: str | Sequence[str],
+        reference_code: Tensor | None = None,
     ) -> Tensor:
         squeeze = False
         if z_t.ndim == 2:
@@ -132,8 +139,22 @@ class ScoreResidualStudentRuntime:
         if time.numel() != batch_size:
             raise ValueError(f"Expected {batch_size} timesteps, got {time.numel()}")
         style_idx, prompt_idx = self._ids_to_tensors(style_id, prompt_id, batch_size)
+        image_code = None
+        if self.conditioning_mode == "image_code":
+            if reference_code is None:
+                raise ValueError("image_code checkpoint requires reference_code")
+            image_code = reference_code.to(self.device).float()
+            if image_code.ndim == 1:
+                image_code = image_code[None, :]
+            if image_code.shape[0] == 1 and batch_size > 1:
+                image_code = image_code.expand(batch_size, -1)
+            if image_code.shape != (batch_size, self.model.config.image_code_dim):
+                raise ValueError(
+                    "reference_code shape mismatch: "
+                    f"expected {(batch_size, self.model.config.image_code_dim)}, got {tuple(image_code.shape)}"
+                )
         with torch.no_grad():
-            correction = self.model(z, time, style_idx, prompt_idx)
+            correction = self.model(z, time, style_idx, prompt_idx, image_code=image_code)
             if self.prediction_mode == "carrier_anchored":
                 correction, _ = content_affinity_transport(
                     correction,
@@ -151,10 +172,17 @@ class ScoreResidualStudentRuntime:
         style_id: str | Sequence[str],
         prompt_id: str | Sequence[str],
         sigma: float | Tensor,
+        reference_code: Tensor | None = None,
     ) -> Tensor:
         """Return the correction in velocity space for scheduler execution."""
 
-        correction = self.predict_correction(z_t, timestep, style_id, prompt_id)
+        correction = self.predict_correction(
+            z_t,
+            timestep,
+            style_id,
+            prompt_id,
+            reference_code=reference_code,
+        )
         if self.target_kind == "native_delta_score":
             correction = score_delta_to_velocity_delta(correction, sigma)
         return correction

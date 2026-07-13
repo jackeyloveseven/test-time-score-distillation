@@ -38,6 +38,16 @@ PROMPTS = {
 }
 
 
+def pooled_reference_code(style_latent_4d: torch.Tensor) -> torch.Tensor:
+    """Match the frozen VAE reference code written by the native teacher probe."""
+
+    tokens = style_latent_4d.float().flatten(2).transpose(1, 2)
+    return torch.cat(
+        [tokens.mean(dim=1), tokens.std(dim=1, unbiased=False)],
+        dim=-1,
+    ).contiguous()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sample Klein9B images with student residual guidance.")
     parser.add_argument("--style-id", default="27")
@@ -252,6 +262,7 @@ def main() -> int:
         )
         style_latent_4d = vae.encode(style_img)
         style_latent = rearrange(style_latent_4d, "B C H W -> B (H W) C")
+        reference_code = pooled_reference_code(style_latent_4d)
 
     if pipe.text_encoder_qwen3 is not None:
         pipe.load_models_to_device(["text_encoder_qwen3"])
@@ -492,6 +503,7 @@ def main() -> int:
                     style_id=style_id,
                     prompt_id=args.prompt_id,
                     sigma=scheduler.sigmas[step_idx],
+                    reference_code=reference_code,
                 ).to(device=v_normal.device, dtype=v_normal.dtype)
                 noise_preds["score_student"] = v_normal + step_score_scale * score_delta
                 hard_residual_norm = 0.0
@@ -519,6 +531,7 @@ def main() -> int:
                     style_id=style_id,
                     prompt_id=args.prompt_id,
                     sigma=scheduler.sigmas[step_idx],
+                    reference_code=reference_code,
                 ).to(device=v_hard.device, dtype=v_hard.dtype)
                 noise_preds["score_student"] = v_hard + step_score_scale * score_delta
                 hard_residual_norm = float(torch.linalg.norm(hard_residual.reshape(1, -1), dim=1)[0].item())

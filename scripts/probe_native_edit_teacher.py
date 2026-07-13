@@ -162,6 +162,16 @@ def latent_dump(z_t: torch.Tensor) -> dict[str, object]:
     }
 
 
+def pooled_reference_code(style_latent_4d: torch.Tensor) -> torch.Tensor:
+    """Build a deterministic global image code from the frozen FLUX VAE latent."""
+
+    if style_latent_4d.ndim != 4:
+        raise ValueError(f"Expected [B,C,H,W] style latent, got {tuple(style_latent_4d.shape)}")
+    tokens = style_latent_4d.float().flatten(2).transpose(1, 2)
+    code = torch.cat([tokens.mean(dim=1), tokens.std(dim=1, unbiased=False)], dim=-1)
+    return code[0].detach().to(device="cpu", dtype=torch.float32).contiguous()
+
+
 def main() -> int:
     args = parse_args()
     if args.dump_latents and not args.dump_fields:
@@ -211,6 +221,7 @@ def main() -> int:
     pipe.vram_management_enabled = False
 
     reference_conditions: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+    reference_codes: dict[str, torch.Tensor] = {}
     edit_unit = Flux2Unit_EditImageEmbedder()
     pipe.load_models_to_device(["vae"])
     for style_id in style_ids:
@@ -221,11 +232,14 @@ def main() -> int:
             (args.width, args.height), Image.Resampling.BICUBIC
         )
         with torch.no_grad():
+            style_pixels = pipe.preprocess_image(image)
+            style_latent_4d = pipe.vae.encode(style_pixels)
             encoded = edit_unit.process(pipe, image, edit_image_auto_resize=False)
         reference_conditions[style_id] = (
             encoded["edit_latents"].to(device="cuda", dtype=torch.bfloat16),
             encoded["edit_image_ids"].to(device="cuda"),
         )
+        reference_codes[style_id] = pooled_reference_code(style_latent_4d)
 
     prompt_conditions: dict[str, tuple[torch.Tensor, torch.Tensor, str]] = {}
     if pipe.text_encoder_qwen3 is not None:
@@ -310,7 +324,7 @@ def main() -> int:
                 if args.dump_fields:
                     dump_payload = {
                         "style_id": style_id,
-                        "style_path": str(style_path),
+                        "style_path": str(style_root / f"{style_id}.png"),
                         "prompt_id": prompt_id,
                         "prompt_text": prompt_conditions[prompt_id][2],
                         "timestep": float(timestep_cpu.item()),
@@ -321,6 +335,8 @@ def main() -> int:
                             "native_delta_velocity": delta,
                             "native_delta_score": delta_score,
                         },
+                        "reference_code": reference_codes[style_id],
+                        "reference_code_type": "flux2_vae_mean_std",
                         "sigma": float(sigma.item()),
                         "score_delta_coefficient": float(score_coeff.item()),
                         "teacher_type": "native_with_minus_without_score",

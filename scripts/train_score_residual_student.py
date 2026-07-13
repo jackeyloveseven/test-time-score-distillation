@@ -42,6 +42,12 @@ def parse_args() -> argparse.Namespace:
         default="token_mlp",
         help="Student architecture. token_mixer adds spatial mixing on the latent grid.",
     )
+    parser.add_argument(
+        "--conditioning-mode",
+        choices=["style_id", "image_code"],
+        default="style_id",
+        help="Use a memorized style ID or a frozen reference-image code.",
+    )
     parser.add_argument("--mixer-layers", type=int, default=4)
     parser.add_argument("--mixer-kernel", type=int, default=3)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
@@ -133,6 +139,11 @@ class ScoreResidualDataset(Dataset):
             raise ValueError(f"Row {idx} dump missing latents.z_t: {row['dump_path']}")
 
         z_t = latents["z_t"].detach().float().cpu()
+        reference_code = dump.get("reference_code")
+        if reference_code is None:
+            reference_code = torch.zeros(0, dtype=torch.float32)
+        else:
+            reference_code = reference_code.detach().float().cpu().reshape(-1)
         target_cfg = row.get("target", row.get("teacher", {}))
         kind = str(target_cfg.get("kind", "highpass_delta"))
         target_name = str(target_cfg.get("name", ""))
@@ -195,6 +206,7 @@ class ScoreResidualDataset(Dataset):
             "sample_id": torch.tensor(int(row.get("sample_id", idx)), dtype=torch.long),
             "height": torch.tensor(int(row["height"]), dtype=torch.long),
             "width": torch.tensor(int(row["width"]), dtype=torch.long),
+            "reference_code": reference_code,
         }
 
 
@@ -367,6 +379,7 @@ def run_epoch(
     spectral_weight: float,
     spectral_kernel: int,
     prediction_mode: str,
+    conditioning_mode: str,
     carrier_temperature: float,
     carrier_strength: float,
     carrier_highpass_gain: float,
@@ -391,7 +404,16 @@ def run_epoch(
             if not torch.all(heights == height).item() or not torch.all(widths == width).item():
                 raise ValueError("All samples in a batch must share height/width for spectral loss.")
 
-            raw_pred = model(z_t, timestep, style_idx, prompt_idx)
+            reference_code = batch["reference_code"].to(device)
+            if conditioning_mode == "image_code" and reference_code.shape[-1] == 0:
+                raise ValueError("image_code conditioning requires reference_code in every dump")
+            raw_pred = model(
+                z_t,
+                timestep,
+                style_idx,
+                prompt_idx,
+                image_code=reference_code if conditioning_mode == "image_code" else None,
+            )
             pred, train_pred = compose_prediction(
                 raw_pred,
                 z_t,
@@ -482,6 +504,15 @@ def main() -> int:
     max_tokens = int(z_t.shape[-2])
     grid_height = int(rows[0]["height"])
     grid_width = int(rows[0]["width"])
+    first_reference_code = first_dump.get("reference_code")
+    if args.conditioning_mode == "image_code":
+        if first_reference_code is None:
+            raise ValueError("image_code conditioning requires dumps with reference_code")
+        image_code_dim = int(first_reference_code.numel())
+        if image_code_dim <= 0:
+            raise ValueError("reference_code must be non-empty")
+    else:
+        image_code_dim = 256
 
     dataset = ScoreResidualDataset(rows, PROJECT_ROOT, style_to_idx, prompt_to_idx)
     train_indices, val_indices, split_meta = split_indices_from_rows(
@@ -523,6 +554,8 @@ def main() -> int:
         mixer_kernel=args.mixer_kernel,
         grid_height=grid_height,
         grid_width=grid_width,
+        conditioning_mode=args.conditioning_mode,
+        image_code_dim=image_code_dim,
     )
     model = build_score_residual_student(config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -559,6 +592,7 @@ def main() -> int:
             spectral_weight=args.spectral_weight,
             spectral_kernel=args.spectral_kernel,
             prediction_mode=args.prediction_mode,
+            conditioning_mode=args.conditioning_mode,
             carrier_temperature=args.carrier_temperature,
             carrier_strength=args.carrier_strength,
             carrier_highpass_gain=args.carrier_highpass_gain,
@@ -573,6 +607,7 @@ def main() -> int:
                 spectral_weight=args.spectral_weight,
                 spectral_kernel=args.spectral_kernel,
                 prediction_mode=args.prediction_mode,
+                conditioning_mode=args.conditioning_mode,
                 carrier_temperature=args.carrier_temperature,
                 carrier_strength=args.carrier_strength,
                 carrier_highpass_gain=args.carrier_highpass_gain,

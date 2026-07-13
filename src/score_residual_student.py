@@ -30,6 +30,8 @@ class ScoreResidualStudentConfig:
     mixer_kernel: int = 3
     grid_height: int = 0
     grid_width: int = 0
+    conditioning_mode: str = "style_id"
+    image_code_dim: int = 256
 
 
 class ScoreResidualStudent(nn.Module):
@@ -47,13 +49,23 @@ class ScoreResidualStudent(nn.Module):
     def __init__(self, config: ScoreResidualStudentConfig) -> None:
         super().__init__()
         self.config = config
+        if config.conditioning_mode not in {"style_id", "image_code"}:
+            raise ValueError(f"Unsupported conditioning_mode: {config.conditioning_mode}")
         self.time_embedding = SinusoidalTimestepEmbedding(config.time_embed_dim)
         self.time_mlp = nn.Sequential(
             nn.Linear(config.time_embed_dim, config.cond_dim),
             nn.SiLU(),
             nn.Linear(config.cond_dim, config.cond_dim),
         )
-        self.style_embedding = nn.Embedding(config.num_styles, config.cond_dim)
+        if config.conditioning_mode == "style_id":
+            self.style_embedding = nn.Embedding(config.num_styles, config.cond_dim)
+        else:
+            self.image_code_norm = nn.LayerNorm(config.image_code_dim)
+            self.image_code_proj = nn.Sequential(
+                nn.Linear(config.image_code_dim, config.cond_dim),
+                nn.SiLU(),
+                nn.Linear(config.cond_dim, config.cond_dim),
+            )
         self.prompt_embedding = nn.Embedding(config.num_prompts, config.cond_dim)
         self.position_embedding = nn.Embedding(config.max_tokens, config.cond_dim)
         self.cond_proj = nn.Sequential(
@@ -79,9 +91,20 @@ class ScoreResidualStudent(nn.Module):
             nn.init.normal_(last.weight, mean=0.0, std=float(scale))
             nn.init.zeros_(last.bias)
 
-    def condition(self, timestep: Tensor, style_idx: Tensor, prompt_idx: Tensor) -> Tensor:
+    def condition(
+        self,
+        timestep: Tensor,
+        style_idx: Tensor,
+        prompt_idx: Tensor,
+        image_code: Tensor | None = None,
+    ) -> Tensor:
         time_cond = self.time_mlp(self.time_embedding(timestep / 1000.0))
-        style_cond = self.style_embedding(style_idx.long().reshape(-1))
+        if self.config.conditioning_mode == "image_code":
+            if image_code is None:
+                raise ValueError("image_code conditioning requires image_code")
+            style_cond = self.image_code_proj(self.image_code_norm(image_code.float()))
+        else:
+            style_cond = self.style_embedding(style_idx.long().reshape(-1))
         prompt_cond = self.prompt_embedding(prompt_idx.long().reshape(-1))
         return self.cond_proj(torch.cat([time_cond, style_cond, prompt_cond], dim=-1))
 
@@ -91,12 +114,13 @@ class ScoreResidualStudent(nn.Module):
         timestep: Tensor,
         style_idx: Tensor,
         prompt_idx: Tensor,
+        image_code: Tensor | None = None,
     ) -> Tensor:
         if z_t.ndim != 3:
             raise ValueError("z_t must be [B, L, D]")
         if z_t.shape[1] > self.config.max_tokens:
             raise ValueError(f"z_t has {z_t.shape[1]} tokens, max_tokens={self.config.max_tokens}")
-        cond = self.condition(timestep, style_idx, prompt_idx)
+        cond = self.condition(timestep, style_idx, prompt_idx, image_code=image_code)
         cond = cond[:, None, :].expand(-1, z_t.shape[1], -1)
         positions = torch.arange(z_t.shape[1], device=z_t.device)
         pos_cond = self.position_embedding(positions)[None, :, :]
@@ -116,7 +140,15 @@ class ScoreConditioner(nn.Module):
             nn.SiLU(),
             nn.Linear(config.cond_dim, config.cond_dim),
         )
-        self.style_embedding = nn.Embedding(config.num_styles, config.cond_dim)
+        if config.conditioning_mode == "style_id":
+            self.style_embedding = nn.Embedding(config.num_styles, config.cond_dim)
+        else:
+            self.image_code_norm = nn.LayerNorm(config.image_code_dim)
+            self.image_code_proj = nn.Sequential(
+                nn.Linear(config.image_code_dim, config.cond_dim),
+                nn.SiLU(),
+                nn.Linear(config.cond_dim, config.cond_dim),
+            )
         self.prompt_embedding = nn.Embedding(config.num_prompts, config.cond_dim)
         self.cond_proj = nn.Sequential(
             nn.Linear(config.cond_dim * 3, config.cond_dim),
@@ -124,9 +156,20 @@ class ScoreConditioner(nn.Module):
             nn.Linear(config.cond_dim, config.cond_dim),
         )
 
-    def forward(self, timestep: Tensor, style_idx: Tensor, prompt_idx: Tensor) -> Tensor:
+    def forward(
+        self,
+        timestep: Tensor,
+        style_idx: Tensor,
+        prompt_idx: Tensor,
+        image_code: Tensor | None = None,
+    ) -> Tensor:
         time_cond = self.time_mlp(self.time_embedding(timestep / 1000.0))
-        style_cond = self.style_embedding(style_idx.long().reshape(-1))
+        if self.config.conditioning_mode == "image_code":
+            if image_code is None:
+                raise ValueError("image_code conditioning requires image_code")
+            style_cond = self.image_code_proj(self.image_code_norm(image_code.float()))
+        else:
+            style_cond = self.style_embedding(style_idx.long().reshape(-1))
         prompt_cond = self.prompt_embedding(prompt_idx.long().reshape(-1))
         return self.cond_proj(torch.cat([time_cond, style_cond, prompt_cond], dim=-1))
 
@@ -212,6 +255,7 @@ class ScoreResidualTokenMixer(nn.Module):
         timestep: Tensor,
         style_idx: Tensor,
         prompt_idx: Tensor,
+        image_code: Tensor | None = None,
     ) -> Tensor:
         if z_t.ndim != 3:
             raise ValueError("z_t must be [B, L, D]")
@@ -220,7 +264,7 @@ class ScoreResidualTokenMixer(nn.Module):
             raise ValueError(f"z_t has {token_count} tokens, max_tokens={self.config.max_tokens}")
         height, width = self._grid_shape(token_count)
 
-        cond = self.conditioner(timestep, style_idx, prompt_idx)
+        cond = self.conditioner(timestep, style_idx, prompt_idx, image_code=image_code)
         cond = cond[:, None, :].expand(-1, token_count, -1)
         positions = torch.arange(token_count, device=z_t.device)
         cond = cond + self.position_embedding(positions)[None, :, :]

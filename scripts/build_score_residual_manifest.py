@@ -193,6 +193,7 @@ def main() -> int:
         field_shape = [int(v) for v in hard.shape]
         latent_shape = [int(v) for v in z_t.shape]
         latent_dtype = str(validated["latents"].get("z_t_dtype", str(z_t.dtype)))
+        reference_code = dump.get("reference_code")
 
         row: Dict[str, object] = {
             "sample_id": idx,
@@ -208,6 +209,9 @@ def main() -> int:
             "latent_shape": latent_shape,
             "latent_dtype": latent_dtype,
             "field_shape": field_shape,
+            "reference_code_key": "reference_code" if reference_code is not None else None,
+            "reference_code_type": dump.get("reference_code_type"),
+            "reference_code_shape": [int(v) for v in reference_code.shape] if reference_code is not None else None,
             "inputs": {
                 "latent": "latents.z_t",
                 "optional_hard_residual": "fields.hard_scfg" if "hard_scfg" in validated["fields"] else None,

@@ -94,6 +94,7 @@ def evaluate_scale(
     scale: float,
     spectral_kernel: int,
     prediction_mode: str,
+    conditioning_mode: str,
     carrier_temperature: float,
     carrier_strength: float,
     carrier_highpass_gain: float,
@@ -115,7 +116,16 @@ def evaluate_scale(
             if not torch.all(heights == height).item() or not torch.all(widths == width).item():
                 raise ValueError("All samples in a batch must share height/width.")
 
-            raw_correction = model(z_t, timestep, style_idx, prompt_idx)
+            reference_code = batch["reference_code"].to(device)
+            if conditioning_mode == "image_code" and reference_code.shape[-1] == 0:
+                raise ValueError("image_code conditioning requires reference_code in every dump")
+            raw_correction = model(
+                z_t,
+                timestep,
+                style_idx,
+                prompt_idx,
+                image_code=reference_code if conditioning_mode == "image_code" else None,
+            )
             rendered, _ = compose_prediction(
                 raw_correction,
                 z_t,
@@ -219,6 +229,7 @@ def main() -> int:
             scale=scale,
             spectral_kernel=args.spectral_kernel,
             prediction_mode=str(ckpt.get("prediction_mode", "hard_delta")),
+            conditioning_mode=str(ckpt.get("config", {}).get("conditioning_mode", "style_id")),
             carrier_temperature=float(ckpt.get("carrier", {}).get("temperature", 0.1)),
             carrier_strength=float(ckpt.get("carrier", {}).get("strength", 0.75)),
             carrier_highpass_gain=float(ckpt.get("carrier", {}).get("highpass_gain", 0.0)),
@@ -246,6 +257,7 @@ def main() -> int:
         "checkpoint_epoch": ckpt.get("epoch"),
         "checkpoint_metric": ckpt.get("metric"),
         "prediction_mode": ckpt.get("prediction_mode", "hard_delta"),
+        "conditioning_mode": ckpt.get("config", {}).get("conditioning_mode", "style_id"),
         "carrier": ckpt.get("carrier"),
         "split": split_meta,
         "num_samples": len(dataset),
