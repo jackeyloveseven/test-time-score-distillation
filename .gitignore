@@ -7,6 +7,7 @@ __pycache__/
 # Runtime logs and generated experiment artifacts
 *.log
 experiments/**
+results/**
 results/**/*.pt
 results/**/*.pth
 results/**/*.ckpt
@@ -22,4 +23,3 @@ results/**/*.gif
 .DS_Store
 .vscode/
 .idea/
-
