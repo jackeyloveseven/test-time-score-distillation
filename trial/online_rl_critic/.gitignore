@@ -2,5 +2,8 @@ __pycache__/
 results/
 *.log
 manifest.csv
+manifest_grpo.csv
 metrics.csv
 metrics_summary.json
+metrics_grpo.csv
+metrics_grpo_summary.json
