@@ -44,7 +44,13 @@ from src.ca_dmd_backend import (
 )
 from src.attention_hooks import Klein9BCache, Klein9BController, register_klein9b_attn_hooks
 from src.csv_rows import csv_fieldnames_for_rows
-from src.flux2_score import resolve_sigma_info, velocity_to_x0
+from src.carrier_score import affinity_transport_cosine, content_affinity_transport
+from src.flux2_score import (
+    build_pseudo_target_loss,
+    resolve_sigma_info,
+    velocity_delta_to_score_delta,
+    velocity_to_x0,
+)
 from src.gradient_audit import StyleGradientCalibrationState, apply_gradient_audit, grad_cosine
 from src.kv_match import capture_reference_kv
 from src.kv_match_objective import kv_match_loss_from_attention_layers
@@ -144,7 +150,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--iters", type=int, default=5)
     parser.add_argument("--disable-dynamic-iters", action="store_true")
-    parser.add_argument("--style-mode", default="score_match", choices=["score_match", "ca_only", "ca_dmd", "kv_match"])
+    parser.add_argument(
+        "--style-mode",
+        default="score_match",
+        choices=["score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"],
+    )
     parser.add_argument("--fake-score-backend", default="none", choices=["none", "dmd2_guidance", "klein_full_fake"])
     parser.add_argument("--fake-model-root", default="/mnt/local/klein4b-base")
     parser.add_argument("--fake-vram-limit-gb", type=float, default=None)
@@ -170,6 +180,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lambda-dm", type=float, default=1.0)
     parser.add_argument("--pseudo-step-size", type=float, default=0.05)
     parser.add_argument("--pseudo-grad-normalization", default="rms", choices=["none", "rms", "l2"])
+    parser.add_argument("--carrier-temperature", type=float, default=0.1)
+    parser.add_argument("--carrier-strength", type=float, default=0.75)
+    parser.add_argument("--carrier-highpass-gain", type=float, default=0.0)
+    parser.add_argument("--carrier-loss-weight", type=float, default=0.25)
     parser.add_argument("--adain-alpha", type=float, default=0.5)
     parser.add_argument("--disable-slt", action="store_true")
     parser.add_argument("--disable-final-adain", action="store_true")
@@ -659,6 +673,47 @@ def build_gradient_audit_probe(
                 sigma_eps=args.sigma_eps,
                 coeff_eps=args.coeff_eps,
             ).loss
+        elif args.style_mode == "score_carrier":
+            probe_triplet = evaluate_native_edit_triplet(
+                dit=teacher_dit,
+                latents=probe_latents,
+                timestep=timestep_style_cuda,
+                embedded_guidance=0.0,
+                prompt_embeds=teacher_prompt_embeds,
+                text_ids=teacher_text_ids,
+                negative_prompt_embeds=teacher_without_prompt_embeds,
+                negative_text_ids=teacher_without_text_ids,
+                image_ids=teacher_image_ids,
+                edit_condition=edit_condition,
+                require_pre_grad=True,
+                share_without_with_pre=True,
+            )
+            score_objective = score_match_loss_from_velocities(
+                probe_triplet.pre_velocity,
+                probe_triplet.with_velocity,
+                sigma_info.sigma,
+                normalization=args.score_normalization,
+                loss_kind=args.score_loss,
+                sigma_eps=args.sigma_eps,
+                coeff_eps=args.coeff_eps,
+            )
+            goal_score = -score_objective.delta_score.detach()
+            carrier_score, _ = content_affinity_transport(
+                goal_score,
+                content_anchor,
+                temperature=args.carrier_temperature,
+                strength=args.carrier_strength,
+                highpass_gain=args.carrier_highpass_gain,
+            )
+            carrier_pseudo_grad = float(args.lambda_ca) * (float(args.cfg_scale) - 1.0) * carrier_score
+            carrier_loss = build_pseudo_target_loss(
+                velocity_to_x0(probe_latents, probe_triplet.pre_velocity, sigma_info.sigma),
+                carrier_pseudo_grad,
+                step_size=args.pseudo_step_size,
+                normalize_grad_mode=args.pseudo_grad_normalization,
+                grad_eps=args.coeff_eps,
+            )[0]
+            probe_style_loss = score_objective.loss + float(args.carrier_loss_weight) * carrier_loss
         elif args.style_mode == "kv_match":
             if (
                 kv_cache is None
@@ -710,6 +765,31 @@ def build_gradient_audit_probe(
                 sigma_eps=args.sigma_eps,
                 normalize_grad_mode=args.pseudo_grad_normalization,
             ).loss
+        elif args.style_mode == "carrier_score":
+            if triplet is None:
+                raise RuntimeError("carrier_score gradient audit probe requires a detached teacher triplet")
+            sigma_broadcast = sigma_info.sigma.to(device=probe_latents.device, dtype=probe_latents.dtype)
+            delta_ca_velocity = triplet.with_velocity.detach() - triplet.without_velocity.detach()
+            delta_ca_score, _ = velocity_delta_to_score_delta(
+                delta_ca_velocity,
+                sigma_info.sigma,
+                sigma_eps=args.sigma_eps,
+            )
+            carrier_score, _ = content_affinity_transport(
+                delta_ca_score,
+                content_anchor,
+                temperature=args.carrier_temperature,
+                strength=args.carrier_strength,
+                highpass_gain=args.carrier_highpass_gain,
+            )
+            pseudo_grad_score = float(args.lambda_ca) * (float(args.cfg_scale) - 1.0) * carrier_score
+            probe_style_loss = build_pseudo_target_loss(
+                probe_latents - sigma_broadcast * triplet.without_velocity.detach(),
+                pseudo_grad_score,
+                step_size=args.pseudo_step_size,
+                normalize_grad_mode=args.pseudo_grad_normalization,
+                grad_eps=args.coeff_eps,
+            )[0]
         else:
             if triplet is None or v_fake is None:
                 raise RuntimeError("ca_dmd gradient audit probe requires detached teacher/fake velocities")
@@ -834,7 +914,7 @@ def inner_optimize(
                 "kv_match_self_out_norm": float(objective.self_out_norm.item()),
             }
         else:
-            require_pre_grad = args.style_mode == "score_match"
+            require_pre_grad = args.style_mode in {"score_match", "score_carrier"}
             triplet = evaluate_native_edit_triplet(
                 dit=teacher_dit,
                 latents=latents,
@@ -865,6 +945,47 @@ def inner_optimize(
                     "score_match_delta_score_norm": float(objective.delta_score.float().norm().item()),
                     "score_match_delta_velocity_norm": float(objective.delta_velocity.float().norm().item()),
                 }
+            elif args.style_mode == "score_carrier":
+                x0_pred = velocity_to_x0(latents, triplet.pre_velocity, sigma_info.sigma)
+                objective = score_match_loss_from_velocities(
+                    triplet.pre_velocity,
+                    triplet.with_velocity,
+                    sigma_info.sigma,
+                    normalization=args.score_normalization,
+                    loss_kind=args.score_loss,
+                    sigma_eps=args.sigma_eps,
+                    coeff_eps=args.coeff_eps,
+                )
+                goal_score = -objective.delta_score.detach()
+                carrier_score, _ = content_affinity_transport(
+                    goal_score,
+                    content_anchor,
+                    temperature=args.carrier_temperature,
+                    strength=args.carrier_strength,
+                    highpass_gain=args.carrier_highpass_gain,
+                )
+                carrier_pseudo_grad = float(args.lambda_ca) * (float(args.cfg_scale) - 1.0) * carrier_score
+                carrier_loss, _, _ = build_pseudo_target_loss(
+                    x0_pred,
+                    carrier_pseudo_grad,
+                    step_size=args.pseudo_step_size,
+                    normalize_grad_mode=args.pseudo_grad_normalization,
+                    grad_eps=args.coeff_eps,
+                )
+                style_loss = objective.loss + float(args.carrier_loss_weight) * carrier_loss
+                extra = {
+                    "score_carrier_score_match_loss": float(objective.loss.item()),
+                    "score_carrier_loss": float(carrier_loss.item()),
+                    "score_carrier_delta_score_norm": float(objective.delta_score.float().norm().item()),
+                    "score_carrier_transport_norm": float(carrier_score.float().norm().item()),
+                    "score_carrier_transport_cosine": float(
+                        affinity_transport_cosine(goal_score, carrier_score).mean().item()
+                    ),
+                    "score_carrier_loss_weight": float(args.carrier_loss_weight),
+                    "score_carrier_temperature": float(args.carrier_temperature),
+                    "score_carrier_strength": float(args.carrier_strength),
+                    "score_carrier_highpass_gain": float(args.carrier_highpass_gain),
+                }
             elif args.style_mode == "ca_only":
                 sigma_broadcast = sigma_info.sigma.to(device=latents.device, dtype=latents.dtype)
                 x0_pred = latents - sigma_broadcast * triplet.without_velocity.detach()
@@ -886,6 +1007,42 @@ def inner_optimize(
                     "delta_ca_score_norm": float(objective.delta_ca_score.float().norm().item()),
                     "delta_ca_velocity_norm": float(objective.delta_ca_velocity.float().norm().item()),
                     "pseudo_grad_score_norm": float(objective.pseudo_grad_score.float().norm().item()),
+                }
+            elif args.style_mode == "carrier_score":
+                sigma_broadcast = sigma_info.sigma.to(device=latents.device, dtype=latents.dtype)
+                x0_pred = latents - sigma_broadcast * triplet.without_velocity.detach()
+                delta_ca_velocity = triplet.with_velocity.detach() - triplet.without_velocity.detach()
+                delta_ca_score, score_coeff = velocity_delta_to_score_delta(
+                    delta_ca_velocity,
+                    sigma_info.sigma,
+                    sigma_eps=args.sigma_eps,
+                )
+                carrier_score, _carrier_affinity = content_affinity_transport(
+                    delta_ca_score,
+                    content_anchor,
+                    temperature=args.carrier_temperature,
+                    strength=args.carrier_strength,
+                    highpass_gain=args.carrier_highpass_gain,
+                )
+                pseudo_grad_score = float(args.lambda_ca) * (float(args.cfg_scale) - 1.0) * carrier_score
+                style_loss, _, _ = build_pseudo_target_loss(
+                    x0_pred,
+                    pseudo_grad_score,
+                    step_size=args.pseudo_step_size,
+                    normalize_grad_mode=args.pseudo_grad_normalization,
+                    grad_eps=args.coeff_eps,
+                )
+                extra = {
+                    "carrier_score_delta_score_norm": float(delta_ca_score.float().norm().item()),
+                    "carrier_score_transport_norm": float(carrier_score.float().norm().item()),
+                    "carrier_score_transport_cosine": float(
+                        affinity_transport_cosine(delta_ca_score, carrier_score).mean().item()
+                    ),
+                    "carrier_score_coeff": float(score_coeff.item()),
+                    "carrier_score_pseudo_grad_norm": float(pseudo_grad_score.float().norm().item()),
+                    "carrier_score_temperature": float(args.carrier_temperature),
+                    "carrier_score_strength": float(args.carrier_strength),
+                    "carrier_score_highpass_gain": float(args.carrier_highpass_gain),
                 }
             else:
                 sigma_broadcast = sigma_info.sigma.to(device=latents.device, dtype=latents.dtype)
@@ -1086,7 +1243,7 @@ def main() -> int:
         and
         diagnostic_single_model
         and vram_contract.effective_main_vram_limit_gb == vram_contract.effective_teacher_vram_limit_gb
-        and args.style_mode != "score_match"
+        and args.style_mode not in {"score_match", "carrier_score", "score_carrier"}
     )
     main_pipe = load_flux2_pipe(main_model_root, vram_limit_gb=vram_contract.effective_main_vram_limit_gb)
     teacher_pipe = None

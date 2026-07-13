@@ -18,7 +18,7 @@ from .flux2_score import (
 Tensor = torch.Tensor
 NormalizationMode = Literal["raw", "coeff"]
 LossKind = Literal["mse", "smooth_l1"]
-StyleMode = Literal["score_match", "ca_only", "ca_dmd", "kv_match"]
+StyleMode = Literal["score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"]
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ class PseudoGuidanceResult:
 
 
 def validate_style_mode(mode: str, backend_kind: str | None) -> None:
-    valid_modes = {"score_match", "ca_only", "ca_dmd", "kv_match"}
+    valid_modes = {"score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"}
     if mode not in valid_modes:
         raise ValueError(f"Unsupported style mode {mode!r}; expected one of {sorted(valid_modes)}")
     if mode == "ca_dmd" and backend_kind in {None, "", "none"}:

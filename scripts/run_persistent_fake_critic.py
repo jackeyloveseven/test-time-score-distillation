@@ -16,6 +16,7 @@ from typing import Any
 
 import torch
 import torch.nn.functional as F
+from PIL import Image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,7 @@ from src.ca_dmd_backend import (
 )
 from src.csv_rows import csv_fieldnames_for_rows
 from src.flux2_score import velocity_delta_to_score_delta
+from src.klein9b_loading import model_config_offload_kwargs
 from src.native_edit_teacher import compute_native_velocity, freeze_condition_tensor, prepare_edit_condition
 from src.persistent_replay import PersistentReplayBuffer, PersistentReplayEntry, validate_reference_hash_split
 
@@ -70,6 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--default-reference-timestep", type=float, default=500.0)
     parser.add_argument("--checkpoint-every-updates", type=int, default=64)
     parser.add_argument("--checkpoint-dir", default=None)
+    parser.add_argument("--skip-checkpoint-save", action="store_true")
     parser.add_argument("--resume-trainer-state-path", default=None)
     parser.add_argument("--results-dir", default="results")
     parser.add_argument("--out-prefix", default="persistent_fake_critic")
@@ -126,18 +129,14 @@ def set_seed(seed: int) -> None:
 def load_flux2_pipe(model_root: Path, *, vram_limit_gb: float | None):
     from diffsynth.pipelines.flux2_image import Flux2ImagePipeline, ModelConfig
 
-    def offload_kwargs(limit: float | None) -> dict[str, object]:
-        if limit is None:
-            return {}
-        return {"offload_dtype": torch.float8_e4m3fn, "offload_fragment_size": 32}
-
+    offload_kwargs = model_config_offload_kwargs(vram_limit_gb)
     pipe = Flux2ImagePipeline.from_pretrained(
         torch_dtype=torch.bfloat16,
         device="cuda",
         model_configs=[
-            ModelConfig(path=sorted_files(str(model_root / "text_encoder" / "*.safetensors")), **offload_kwargs(vram_limit_gb)),
-            ModelConfig(path=sorted_files(str(model_root / "transformer" / "*.safetensors")), **offload_kwargs(vram_limit_gb)),
-            ModelConfig(path=str(model_root / "vae" / "diffusion_pytorch_model.safetensors"), **offload_kwargs(vram_limit_gb)),
+            ModelConfig(path=sorted_files(str(model_root / "text_encoder" / "*.safetensors")), **offload_kwargs),
+            ModelConfig(path=sorted_files(str(model_root / "transformer" / "*.safetensors")), **offload_kwargs),
+            ModelConfig(path=str(model_root / "vae" / "diffusion_pytorch_model.safetensors"), **offload_kwargs),
         ],
         tokenizer_config=ModelConfig(path=str(model_root / "tokenizer")),
         vram_limit=vram_limit_gb,
@@ -290,6 +289,8 @@ def build_conditioning_cache(pipe, rows: list[dict[str, Any]], *, role: str) -> 
         reference_path = str(row["reference_path"])
         reference_sha256 = str(row["reference_sha256"])
         latent_h, latent_w = resolve_latent_hw(row, export_meta, clean_latent)
+        width = int(row.get("width", export_meta.get("width")))
+        height = int(row.get("height", export_meta.get("height")))
         key = conditioning_key(
             prompt_text=prompt_text,
             reference_path=reference_path,
@@ -301,7 +302,8 @@ def build_conditioning_cache(pipe, rows: list[dict[str, Any]], *, role: str) -> 
             continue
         prompt_embeds, text_ids = encode_prompt_for_pipe(pipe, prompt_text)
         image_ids = freeze_condition_tensor(image_id_unit.prepare_latent_ids(latent_h, latent_w).to("cuda"), device="cuda")
-        edit_condition = prepare_edit_condition(pipe, reference_path, auto_resize=False)
+        reference_image = Image.open(reference_path).convert("RGB").resize((width, height), Image.Resampling.BICUBIC)
+        edit_condition = prepare_edit_condition(pipe, reference_image, auto_resize=False)
         cache[key] = FakeConditioning(
             prompt_embeds=prompt_embeds,
             text_ids=text_ids,
@@ -572,6 +574,22 @@ def save_checkpoint(
     }
 
 
+def skipped_checkpoint_record(
+    *,
+    checkpoint_dir: Path,
+    update_count: int,
+    reason: str,
+) -> dict[str, str]:
+    return {
+        "fake_backend_state_path": "",
+        "trainer_state_path": "",
+        "checkpoint_dir": str(checkpoint_dir),
+        "update_count": str(update_count),
+        "skipped": "true",
+        "reason": reason,
+    }
+
+
 def main() -> int:
     args = parse_args()
     if args.grad_accum_steps <= 0:
@@ -821,7 +839,7 @@ def main() -> int:
                     "latest_eval_sigma": latest_eval["eval_sigma"],
                 }
             )
-            if total_update_count % int(args.checkpoint_every_updates) == 0:
+            if (not args.skip_checkpoint_save) and total_update_count % int(args.checkpoint_every_updates) == 0:
                 resume_train_index = train_idx
                 resume_sample_update_index = sample_update_idx + 1
                 if resume_sample_update_index >= args.updates_per_sample:
@@ -845,20 +863,27 @@ def main() -> int:
                 )
         next_sample_update_index = 0
 
-    final_checkpoint = save_checkpoint(
-        checkpoint_dir=checkpoint_dir,
-        out_prefix=out_prefix,
-        update_count=total_update_count,
-        fake_backend=fake_backend,
-        replay_buffer=replay_buffer,
-        next_train_index=len(train_entries),
-        next_sample_update_index=0,
-        manifest_path=manifest_path,
-        manifest_sha=manifest_sha,
-        replay_mode=args.replay_mode,
-        scoring_rng=scoring_rng,
-        update_rows=update_rows,
-    )
+    if args.skip_checkpoint_save:
+        final_checkpoint = skipped_checkpoint_record(
+            checkpoint_dir=checkpoint_dir,
+            update_count=total_update_count,
+            reason="skip_checkpoint_save",
+        )
+    else:
+        final_checkpoint = save_checkpoint(
+            checkpoint_dir=checkpoint_dir,
+            out_prefix=out_prefix,
+            update_count=total_update_count,
+            fake_backend=fake_backend,
+            replay_buffer=replay_buffer,
+            next_train_index=len(train_entries),
+            next_sample_update_index=0,
+            manifest_path=manifest_path,
+            manifest_sha=manifest_sha,
+            replay_mode=args.replay_mode,
+            scoring_rng=scoring_rng,
+            update_rows=update_rows,
+        )
     checkpoint_records.append(final_checkpoint)
 
     after_train_eval = evaluate_entries(
@@ -923,6 +948,7 @@ def main() -> int:
         "after_heldout_eval": after_heldout_eval,
         "checkpoint_records": checkpoint_records,
         "final_checkpoint": final_checkpoint,
+        "checkpoint_save_enabled": not args.skip_checkpoint_save,
         "update_count_total": total_update_count,
         "update_rows_count": len(update_rows),
         "csv_path": str(csv_path),

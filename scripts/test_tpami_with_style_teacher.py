@@ -37,6 +37,7 @@ def load_runner_function(function_name: str):
 resolve_style_path = load_runner_function("resolve_style_path")
 
 from src.attention_hooks import Klein9BCache, Klein9BController
+from src.carrier_score import affinity_transport_cosine, content_affinity_transport
 from src.ca_dmd_backend import (
     FakeConditioning,
     FakeCriticTrainEntry,
@@ -693,6 +694,56 @@ class TPAMITests(unittest.TestCase):
         x_dmd_new = x_dmd.detach() - lr * x_dmd.grad.detach()
         self.assertGreater(float(((x_dmd_new - x_dmd.detach()) * ca_dmd.pseudo_grad_score.detach()).sum().item()), 0.0)
 
+    def test_content_affinity_carrier_is_reference_independent_and_preserves_constant_field(self) -> None:
+        content = torch.tensor([[[1.0, 0.0], [0.9, 0.1], [-1.0, 0.0]]])
+        field = torch.ones(1, 3, 4)
+        transported, affinity = content_affinity_transport(
+            field,
+            content,
+            temperature=0.2,
+            strength=1.0,
+            highpass_gain=1.0,
+        )
+        self.assertEqual(tuple(affinity.shape), (1, 3, 3))
+        self.assertFalse(affinity.requires_grad)
+        self.assertTrue(torch.allclose(transported, field, atol=1e-6, rtol=1e-6))
+        self.assertTrue(torch.allclose(affinity.sum(dim=-1), torch.ones(1, 3), atol=1e-6, rtol=1e-6))
+
+    def test_content_affinity_carrier_changes_spatial_field_without_reference_inputs(self) -> None:
+        content = torch.tensor([[[1.0, 0.0], [1.0, 0.0], [-1.0, 0.0]]])
+        field = torch.tensor([[[1.0, 0.0], [0.8, 0.0], [-1.0, 0.0]]])
+        transported, _ = content_affinity_transport(
+            field,
+            content,
+            temperature=0.05,
+            strength=1.0,
+            highpass_gain=0.0,
+        )
+        self.assertLess(float(transported[0, 0, 0].item()), 1.0)
+        self.assertGreater(float(transported[0, 0, 0].item()), 0.8)
+        self.assertGreater(float(affinity_transport_cosine(field, transported).item()), 0.99)
+
+    def test_score_carrier_pseudo_target_follows_with_minus_pre_direction(self) -> None:
+        pre_velocity = torch.zeros(1, 3, 4)
+        with_velocity = torch.ones_like(pre_velocity)
+        delta_score, _ = velocity_delta_to_score_delta(
+            with_velocity - pre_velocity,
+            torch.tensor(0.5),
+        )
+        goal_score = -delta_score
+        x0_pred = torch.zeros_like(goal_score, requires_grad=True)
+        loss, target, direction = build_pseudo_target_loss(
+            x0_pred,
+            goal_score,
+            step_size=0.2,
+            normalize_grad_mode="none",
+        )
+        self.assertTrue(torch.all(target > 0.0))
+        self.assertTrue(torch.allclose(direction, goal_score))
+        loss.backward()
+        update = -0.1 * x0_pred.grad
+        self.assertGreater(float((update * goal_score).sum().item()), 0.0)
+
     def test_dmd2_clean_flow_target_regression(self) -> None:
         fake_latents = torch.randn(1, 4, 3)
         noise = torch.randn_like(fake_latents)
@@ -1178,6 +1229,8 @@ class TPAMITests(unittest.TestCase):
     def test_ca_dmd_mode_guard_and_placeholder_backend_errors(self) -> None:
         with self.assertRaises(ValueError):
             validate_style_mode("ca_dmd", "none")
+        validate_style_mode("carrier_score", "none")
+        validate_style_mode("score_carrier", "none")
 
         bridge = build_fake_score_backend("dmd2_guidance")
         self.assertIsNotNone(bridge)
