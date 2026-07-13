@@ -1,5 +1,11 @@
 # Image-Level Reward Trial Results
 
+> **Protocol correction (2026-07-14):** The short table below is a diagnostic
+> smoke only and must not be compared with the paper's `0.68` score. It used
+> `ca_only`, 6 outer steps, 2 inner iterations, and omitted the formal
+> score-carrier calibration/regularization. A strict audit of the formal
+> protocol is recorded in `PROTOCOL_AUDIT.md` and reaches CSD `0.689619`.
+
 ## Question
 
 The earlier same-state GRPO trial optimized only the native CA objective. Its
@@ -58,13 +64,13 @@ where `A_i` is normalized across the three candidate rewards. A short horizon
 still needs a larger policy learning rate; `3e-4` was too small to overcome the
 random initial action preference, while `0.05` followed the reward ordering.
 
-## Interpretation
+## Interpretation of This Smoke Only
 
-This is the first positive evidence in the trial that a frozen image-level
-reward can improve the final style metrics, and that the improvement is not
-coming from changing the teacher or adding a trained adapter. However, it is
-only one style, one prompt, one seed, and six outer steps. It is not evidence
-that the method is ready for the main paper.
+This smoke does not establish an improvement over the existing method. It is
+only one style, one prompt, one seed, six outer steps, and a different
+`ca_only` objective from the formal `score_carrier` protocol. The apparent
+comparison against the paper baseline is invalid and is superseded by the
+protocol audit.
 
 The useful next experiment is a multi-seed, multi-style sweep with the fixed
 relative-advantage update and a small learning-rate grid. The main method stays
