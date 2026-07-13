@@ -23,3 +23,6 @@ results/**/*.gif
 .DS_Store
 .vscode/
 .idea/
+
+# Subagent audit output
+agent_runs/
