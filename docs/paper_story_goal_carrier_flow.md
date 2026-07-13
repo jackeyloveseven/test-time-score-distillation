@@ -51,9 +51,11 @@ content state   -> spatial carrier
 late MM-DiT     -> flow execution code
 ```
 
-The new method turns this decomposition into an image-conditioned score model.
-The first paper diagnoses the missing mechanism; the second paper learns the
-correction field while preserving that mechanism.
+The new method turns this decomposition into an image-conditioned score
+correction. The first paper diagnoses the missing mechanism; the second paper
+applies the correction online while preserving that mechanism. A learned
+student is retained only as an optional amortization path for repeated
+deployment.
 
 ## Motivation: Editing Is Not Progressive Revealing
 

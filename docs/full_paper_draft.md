@@ -269,6 +269,26 @@ successfully. Current metrics are mixed: full residual has better CSD and Gram
 distance, while carrier anchoring is slightly better on CLIP-T, DINO style,
 and layout leakage. These are smoke results, not the final benchmark.
 
+The first multi-seed online validation uses the main CA-only protocol: styles
+`00/kp1`, `13/kp3`, and `27/kp0`, seeds 64--66, 25 outer steps, 5 inner
+iterations, `start-time=1000`, AdamW with zero weight decay, and all auxiliary
+AdaIN/SLT paths disabled. The reference-conditioned native score is evaluated
+online for each trajectory; no offline student checkpoint is involved.
+
+| metric | mean +/- std (9 runs) | direction |
+|---|---:|---|
+| CSD style similarity | **0.5605 +/- 0.0662** | higher |
+| CLIP-T | **0.3287 +/- 0.0171** | higher |
+| DINO style similarity | **0.0602 +/- 0.0225** | higher |
+| VGG Gram distance | 3.9673 +/- 1.3332 | lower |
+| DINO layout leakage | 0.3444 +/- 0.0363 | lower |
+
+The spread is driven partly by the visual diversity of the three references,
+so this table is a reproducibility and variance check rather than a claim of
+universal dominance. The raw per-run manifest and metric summary are
+`results/online25_ca_only_multiseed_manifest.csv` and
+`results/online25_ca_only_multiseed_metrics_summary.json`.
+
 ### 4.4 Required ablations
 
 The paper benchmark must report the following under identical seeds, prompts,
@@ -314,6 +334,19 @@ Online main-method smoke:
   --latent-optimizer adamw --latent-weight-decay 0 \
   --disable-slt --adain-alpha 0 --disable-final-adain \
   --out-prefix online_ca_only_formal25_s27_kp0_seed64
+```
+
+The completed 9-run online validation can be reproduced by launching the same
+command for `(style,prompt,seed) = (00,kp1,64..66), (13,kp3,64..66),
+(27,kp0,64..66)` and then evaluating the resulting manifest:
+
+```bash
+/home/ubuntu/chengyanli/flux/bin/python3 \
+  scripts/evaluate_matched_teacher_outputs.py \
+  --manifest-csv results/online25_ca_only_multiseed_manifest.csv \
+  --out-csv results/online25_ca_only_multiseed_metrics.csv \
+  --summary-json results/online25_ca_only_multiseed_metrics_summary.json \
+  --device cuda
 ```
 
 Native field collection for the optional offline acceleration study:
