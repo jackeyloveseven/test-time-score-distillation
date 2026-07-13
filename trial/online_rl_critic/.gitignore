@@ -16,3 +16,6 @@ metrics_greedy.csv
 metrics_greedy_summary.json
 metrics_oracle.csv
 metrics_oracle_summary.json
+manifest_image_reward.csv
+metrics_image_reward.csv
+metrics_image_reward_summary.json

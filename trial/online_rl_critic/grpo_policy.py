@@ -169,14 +169,13 @@ class OnlineGRPOPolicy:
         group_std = rewards_t.std(unbiased=False)
         advantages = (rewards_t - group_mean) / (group_std + 1e-6)
 
-        old_distribution = torch.distributions.Categorical(logits=self._logits(states).detach())
-        old_log_probs = old_distribution.log_prob(actions).detach()
         distribution = torch.distributions.Categorical(logits=self._logits(states))
-        new_log_probs = distribution.log_prob(actions)
-        ratios = torch.exp(new_log_probs - old_log_probs)
-        unclipped = ratios * advantages.detach()
-        clipped = torch.clamp(ratios, 1.0 - self.clip_eps, 1.0 + self.clip_eps) * advantages.detach()
-        policy_loss = -torch.minimum(unclipped, clipped).mean()
+        log_probs = distribution.log_prob(actions)
+        # A same-state group evaluates every action once, so its old and new
+        # PPO policies coincide and the clipped ratio is uninformative. Use
+        # the equivalent one-step REINFORCE surrogate with relative advantages
+        # to preserve the action ranking signal in this diagnostic setting.
+        policy_loss = -(log_probs * advantages.detach()).mean()
         entropy = distribution.entropy().mean()
         total_loss = policy_loss - self.entropy_weight * entropy
         self.optimizer.zero_grad(set_to_none=True)

@@ -34,6 +34,13 @@ class OnlineGRPOPolicyTest(unittest.TestCase):
         self.assertEqual(len(update["grpo_advantages"]), 3)
         self.assertGreater(float(update["grpo_group_std"]), 0.0)
 
+    def test_same_state_relative_advantage_prefers_best_action(self):
+        torch.manual_seed(0)
+        policy = OnlineGRPOPolicy(device=torch.device("cpu"), lr=0.05, entropy_weight=0.0)
+        state = torch.zeros(10)
+        policy.update_from_same_state_rewards(state=state, rewards=[0.0, 0.1, 0.2])
+        self.assertEqual(policy.select_greedy_action(state).action_scale, 1.5)
+
 
 if __name__ == "__main__":
     unittest.main()
