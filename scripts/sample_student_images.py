@@ -56,6 +56,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--score-student-device", default="cuda", choices=["cpu", "cuda"])
     parser.add_argument("--score-student-scale", type=float, default=1.0)
     parser.add_argument(
+        "--score-student-native-only",
+        action="store_true",
+        help="Apply the score student to v_normal without the legacy K/V hard carrier.",
+    )
+    parser.add_argument(
         "--score-student-style-scales",
         default="",
         help=(
@@ -324,7 +329,15 @@ def main() -> int:
             device=args.score_student_device,
             student_scale=score_student_effective_scale,
         )
-        print(f"Loaded score student scale={score_student_effective_scale}")
+        print(
+            f"Loaded score student scale={score_student_effective_scale} "
+            f"mode={score_student_runtime.prediction_mode}"
+        )
+
+    score_student_carrier_only = bool(
+        score_student_runtime is not None
+        and (args.score_student_native_only or score_student_runtime.prediction_mode == "carrier_anchored")
+    )
 
     step_summaries = []
     for step_idx, t_val in enumerate(scheduler.timesteps):
@@ -341,7 +354,10 @@ def main() -> int:
 
         ref_k_list = []
         ref_v_list = []
-        if reference_guidance_active and any(mode in modes for mode in ("hard", "student", "score_student")):
+        if reference_guidance_active and (
+            any(mode in modes for mode in ("hard", "student"))
+            or ("score_student" in modes and not score_student_carrier_only)
+        ):
             controller.reset_mode()
             cache.clear()
             controller.step()
@@ -469,7 +485,18 @@ def main() -> int:
                 txt_ids=text_ids,
                 image_ids=image_ids,
             )
-            if reference_guidance_active:
+            if score_student_carrier_only:
+                score_delta = score_student_runtime.predict_velocity_correction(
+                    z_t.detach().float(),
+                    timestep=timestep_value,
+                    style_id=style_id,
+                    prompt_id=args.prompt_id,
+                    sigma=scheduler.sigmas[step_idx],
+                ).to(device=v_normal.device, dtype=v_normal.dtype)
+                noise_preds["score_student"] = v_normal + step_score_scale * score_delta
+                hard_residual_norm = 0.0
+                score_delta_norm = float(torch.linalg.norm(score_delta.float().reshape(1, -1), dim=1)[0].item())
+            elif reference_guidance_active:
                 v_hard = compute_styled_velocity(
                     dit,
                     latents=z_t,
@@ -486,11 +513,12 @@ def main() -> int:
                     inject_beta=args.inject_beta,
                 )
                 hard_residual = (v_hard - v_normal).detach().float()
-                score_delta = score_student_runtime.predict_correction(
+                score_delta = score_student_runtime.predict_velocity_correction(
                     z_t.detach().float(),
                     timestep=timestep_value,
                     style_id=style_id,
                     prompt_id=args.prompt_id,
+                    sigma=scheduler.sigmas[step_idx],
                 ).to(device=v_hard.device, dtype=v_hard.dtype)
                 noise_preds["score_student"] = v_hard + step_score_scale * score_delta
                 hard_residual_norm = float(torch.linalg.norm(hard_residual.reshape(1, -1), dim=1)[0].item())
@@ -506,7 +534,10 @@ def main() -> int:
                     "timestep": timestep_value,
                     "reference_guidance_active": bool(reference_guidance_active),
                     "score_student_base_scale": float(score_student_effective_scale),
-                    "score_student_scale": float(step_score_scale if reference_guidance_active else 0.0),
+                    "score_student_scale": float(
+                        step_score_scale if (reference_guidance_active or score_student_carrier_only) else 0.0
+                    ),
+                    "score_student_prediction_mode": score_student_runtime.prediction_mode,
                     "hard_residual_norm": hard_residual_norm,
                     "score_delta_norm": score_delta_norm,
                 }
@@ -547,6 +578,7 @@ def main() -> int:
         "score_student_checkpoint": args.score_student_checkpoint if "score_student" in modes else None,
         "score_student_device": args.score_student_device if "score_student" in modes else None,
         "score_student_scale": args.score_student_scale if "score_student" in modes else None,
+        "score_student_native_only": bool(args.score_student_native_only),
         "score_student_style_scales": score_student_style_scales if "score_student" in modes else None,
         "score_student_effective_scale": score_student_effective_scale if "score_student" in modes else None,
         "score_student_timestep_min": args.score_student_timestep_min if "score_student" in modes else None,

@@ -119,6 +119,25 @@ def velocity_delta_to_score_delta(
     return coeff_full * delta_velocity, coeff
 
 
+def score_delta_to_velocity_delta(
+    delta_score: Tensor,
+    sigma: Tensor | float,
+    *,
+    sigma_eps: float = 1e-4,
+    coeff_eps: float = 1e-6,
+) -> Tensor:
+    """Convert a same-state score difference back to a velocity difference."""
+
+    sigma_ref = _to_tensor(sigma, ref=delta_score)
+    sigma_safe = sigma_ref.clamp_min(float(sigma_eps))
+    coeff = -((1.0 - sigma_ref) / sigma_safe)
+    coeff_full = _broadcast_like(coeff, delta_score)
+    small = _broadcast_like(coeff.abs() < float(coeff_eps), delta_score)
+    denom = torch.where(small, torch.ones_like(coeff_full), coeff_full)
+    converted = delta_score / denom
+    return torch.where(small, torch.zeros_like(converted), converted)
+
+
 def normalize_score_delta(
     delta_score: Tensor,
     coefficient: Tensor | float,
@@ -200,6 +219,7 @@ __all__ = [
     "normalize_score_delta",
     "rms_normalize_field",
     "resolve_sigma_info",
+    "score_delta_to_velocity_delta",
     "velocity_delta_to_score_delta",
     "velocity_to_eps",
     "velocity_to_score",

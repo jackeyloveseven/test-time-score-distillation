@@ -19,6 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.carrier_score import affinity_transport_cosine, content_affinity_transport
 from src.latent_ops import highpass_corrected_teacher, spatial_highpass_tokens
 from src.score_residual_student import ScoreResidualStudentConfig, build_score_residual_student
 
@@ -65,13 +66,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--spectral-kernel", type=int, default=5)
     parser.add_argument(
         "--prediction-mode",
-        choices=["residual", "hard_delta"],
+        choices=["residual", "hard_delta", "carrier_anchored"],
         default="residual",
         help=(
             "residual: model predicts the full teacher residual. "
-            "hard_delta: model predicts a z_t-conditioned correction added to hard_scfg."
+            "hard_delta: model predicts a z_t-conditioned correction added to hard_scfg. "
+            "carrier_anchored: model predicts native goal, then content affinity renders it spatially."
         ),
     )
+    parser.add_argument("--carrier-temperature", type=float, default=0.1)
+    parser.add_argument("--carrier-strength", type=float, default=0.75)
+    parser.add_argument("--carrier-highpass-gain", type=float, default=0.0)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--log-every", type=int, default=1)
     return parser.parse_args()
@@ -128,27 +133,39 @@ class ScoreResidualDataset(Dataset):
             raise ValueError(f"Row {idx} dump missing latents.z_t: {row['dump_path']}")
 
         z_t = latents["z_t"].detach().float().cpu()
-        hard = fields["hard_scfg"].detach().float().cpu()
-        ot = fields["otcfg"].detach().float().cpu()
+        target_cfg = row.get("target", row.get("teacher", {}))
+        kind = str(target_cfg.get("kind", "highpass_delta"))
+        target_name = str(target_cfg.get("name", ""))
+        if target_name in fields:
+            teacher = fields[target_name].detach().float().cpu()
+        elif kind in {"native_delta_velocity", "native_delta_score"}:
+            teacher = fields[kind].detach().float().cpu()
+        else:
+            teacher = None
+
+        if teacher is None:
+            hard = fields["hard_scfg"].detach().float().cpu()
+            ot = fields["otcfg"].detach().float().cpu()
+        else:
+            hard = fields.get("hard_scfg", torch.zeros_like(teacher)).detach().float().cpu()
+            ot = fields.get("otcfg", torch.zeros_like(teacher)).detach().float().cpu()
         if z_t.ndim == 3 and z_t.shape[0] == 1:
             z_t = z_t[0]
         if hard.ndim == 3 and hard.shape[0] == 1:
             hard = hard[0]
         if ot.ndim == 3 and ot.shape[0] == 1:
             ot = ot[0]
-        if z_t.shape != hard.shape or hard.shape != ot.shape:
+        if teacher is not None and teacher.ndim == 3 and teacher.shape[0] == 1:
+            teacher = teacher[0]
+        if z_t.shape != hard.shape or hard.shape != ot.shape or (teacher is not None and teacher.shape != z_t.shape):
             raise ValueError(
                 f"shape mismatch for row {idx}: z_t={tuple(z_t.shape)} "
-                f"hard={tuple(hard.shape)} ot={tuple(ot.shape)}"
+                f"hard={tuple(hard.shape)} ot={tuple(ot.shape)} "
+                f"teacher={None if teacher is None else tuple(teacher.shape)}"
             )
 
-        target_cfg = row.get("target", row.get("teacher", {}))
-        kind = str(target_cfg.get("kind", "highpass_delta"))
-        target_name = str(target_cfg.get("name", ""))
-        if target_name in fields:
-            teacher = fields[target_name].detach().float().cpu()
-            if teacher.ndim == 3 and teacher.shape[0] == 1:
-                teacher = teacher[0]
+        if teacher is not None:
+            pass
         elif kind == "hard":
             teacher = hard
         elif kind == "ot":
@@ -259,6 +276,39 @@ def flatten_batch(x: torch.Tensor) -> torch.Tensor:
     return x.reshape(x.shape[0], -1)
 
 
+def compose_prediction(
+    raw_pred: torch.Tensor,
+    z_t: torch.Tensor,
+    hard: torch.Tensor,
+    prediction_mode: str,
+    *,
+    carrier_temperature: float = 0.1,
+    carrier_strength: float = 0.75,
+    carrier_highpass_gain: float = 0.0,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return rendered prediction and the field used by the model loss.
+
+    ``carrier_anchored`` predicts a native goal field first. The detached
+    content affinity is then applied as the spatial renderer, so the reference
+    teacher supplies what to draw while ``z_t`` supplies where to draw it.
+    """
+
+    if prediction_mode == "residual":
+        return raw_pred, raw_pred
+    if prediction_mode == "hard_delta":
+        return hard + raw_pred, raw_pred
+    if prediction_mode == "carrier_anchored":
+        rendered, _ = content_affinity_transport(
+            raw_pred,
+            z_t,
+            temperature=carrier_temperature,
+            strength=carrier_strength,
+            highpass_gain=carrier_highpass_gain,
+        )
+        return rendered, rendered
+    raise ValueError(f"Unsupported prediction_mode: {prediction_mode}")
+
+
 def batch_metrics(
     pred: torch.Tensor,
     hard: torch.Tensor,
@@ -317,6 +367,9 @@ def run_epoch(
     spectral_weight: float,
     spectral_kernel: int,
     prediction_mode: str,
+    carrier_temperature: float,
+    carrier_strength: float,
+    carrier_highpass_gain: float,
 ) -> Dict[str, float]:
     training = optimizer is not None
     model.train(training)
@@ -339,18 +392,19 @@ def run_epoch(
                 raise ValueError("All samples in a batch must share height/width for spectral loss.")
 
             raw_pred = model(z_t, timestep, style_idx, prompt_idx)
-            if prediction_mode == "residual":
-                pred = raw_pred
-                target = teacher
-            elif prediction_mode == "hard_delta":
-                pred = hard + raw_pred
-                target = teacher - hard
-            else:
-                raise ValueError(f"Unsupported prediction_mode: {prediction_mode}")
+            pred, train_pred = compose_prediction(
+                raw_pred,
+                z_t,
+                hard,
+                prediction_mode,
+                carrier_temperature=carrier_temperature,
+                carrier_strength=carrier_strength,
+                carrier_highpass_gain=carrier_highpass_gain,
+            )
+            target = teacher if prediction_mode != "hard_delta" else teacher - hard
 
             mse = F.mse_loss(pred.float(), teacher.float())
-            train_target = teacher if prediction_mode == "residual" else target
-            train_pred = raw_pred if prediction_mode == "hard_delta" else pred
+            train_target = teacher if prediction_mode != "hard_delta" else target
             cos_loss = 1.0 - F.cosine_similarity(
                 flatten_batch(train_pred.float()),
                 flatten_batch(train_target.float()),
@@ -379,6 +433,11 @@ def run_epoch(
                     "cosine_loss": float(cos_loss.detach().item()),
                     "spectral_loss": float(spectral_loss.detach().item()),
                     "raw_pred_norm": float(torch.linalg.norm(flatten_batch(raw_pred.detach().float()), dim=-1).mean().item()),
+                    "carrier_transport_cosine": (
+                        float(affinity_transport_cosine(raw_pred.detach(), pred.detach()).mean().item())
+                        if prediction_mode == "carrier_anchored"
+                        else float("nan")
+                    ),
                 }
             )
 
@@ -403,6 +462,13 @@ def main() -> int:
 
     manifest_path = Path(args.manifest)
     rows = load_jsonl(manifest_path)
+    target_kinds = {
+        str(row.get("target", row.get("teacher", {})).get("kind", "unknown"))
+        for row in rows
+    }
+    if len(target_kinds) != 1:
+        raise ValueError(f"Manifest must use one target kind per run, got {sorted(target_kinds)}")
+    target_kind = next(iter(target_kinds))
     style_ids = sorted({str(row["style_id"]) for row in rows})
     prompt_ids = sorted({str(row["prompt_id"]) for row in rows})
     style_to_idx = {style_id: idx for idx, style_id in enumerate(style_ids)}
@@ -478,6 +544,7 @@ def main() -> int:
         "device": str(device),
         "model": asdict(config),
         "args": vars(args),
+        "target_kind": target_kind,
     }
     with (out_dir / "config.json").open("w", encoding="utf-8") as f:
         json.dump(run_config, f, indent=2)
@@ -492,6 +559,9 @@ def main() -> int:
             spectral_weight=args.spectral_weight,
             spectral_kernel=args.spectral_kernel,
             prediction_mode=args.prediction_mode,
+            carrier_temperature=args.carrier_temperature,
+            carrier_strength=args.carrier_strength,
+            carrier_highpass_gain=args.carrier_highpass_gain,
         )
         val_metrics = (
             run_epoch(
@@ -503,6 +573,9 @@ def main() -> int:
                 spectral_weight=args.spectral_weight,
                 spectral_kernel=args.spectral_kernel,
                 prediction_mode=args.prediction_mode,
+                carrier_temperature=args.carrier_temperature,
+                carrier_strength=args.carrier_strength,
+                carrier_highpass_gain=args.carrier_highpass_gain,
             )
             if val_loader is not None
             else {}
@@ -524,6 +597,13 @@ def main() -> int:
                     "prompt_to_idx": prompt_to_idx,
                     "epoch": epoch,
                     "metric": best_metric,
+                    "prediction_mode": args.prediction_mode,
+                    "target_kind": target_kind,
+                    "carrier": {
+                        "temperature": args.carrier_temperature,
+                        "strength": args.carrier_strength,
+                        "highpass_gain": args.carrier_highpass_gain,
+                    },
                 },
                 out_dir / "student_best.pt",
             )
@@ -544,6 +624,13 @@ def main() -> int:
             "prompt_to_idx": prompt_to_idx,
             "epoch": args.epochs,
             "metric": best_metric,
+            "prediction_mode": args.prediction_mode,
+            "target_kind": target_kind,
+            "carrier": {
+                "temperature": args.carrier_temperature,
+                "strength": args.carrier_strength,
+                "highpass_gain": args.carrier_highpass_gain,
+            },
         },
         out_dir / "student_last.pt",
     )

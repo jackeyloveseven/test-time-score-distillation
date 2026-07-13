@@ -9,6 +9,8 @@ from typing import Dict, Sequence
 import torch
 from torch import nn
 
+from .carrier_score import content_affinity_transport
+from .flux2_score import score_delta_to_velocity_delta
 from .score_residual_student import ScoreResidualStudentConfig, build_score_residual_student
 
 
@@ -40,12 +42,22 @@ class ScoreResidualStudentRuntime:
         prompt_to_idx: Dict[str, int],
         device: torch.device,
         student_scale: float = 1.0,
+        prediction_mode: str = "residual",
+        carrier_temperature: float = 0.1,
+        carrier_strength: float = 0.75,
+        carrier_highpass_gain: float = 0.0,
+        target_kind: str = "unknown",
     ) -> None:
         self.model = model
         self.style_to_idx = dict(style_to_idx)
         self.prompt_to_idx = dict(prompt_to_idx)
         self.device = device
         self.student_scale = float(student_scale)
+        self.prediction_mode = str(prediction_mode)
+        self.carrier_temperature = float(carrier_temperature)
+        self.carrier_strength = float(carrier_strength)
+        self.carrier_highpass_gain = float(carrier_highpass_gain)
+        self.target_kind = str(target_kind)
 
     @classmethod
     def from_checkpoint(
@@ -61,12 +73,18 @@ class ScoreResidualStudentRuntime:
         model.load_state_dict(ckpt["model"])
         model.to(dev)
         model.eval()
+        carrier = dict(ckpt.get("carrier", {}))
         return cls(
             model=model,
             style_to_idx=ckpt["style_to_idx"],
             prompt_to_idx=ckpt["prompt_to_idx"],
             device=dev,
             student_scale=student_scale,
+            prediction_mode=str(ckpt.get("prediction_mode", "residual")),
+            carrier_temperature=float(carrier.get("temperature", 0.1)),
+            carrier_strength=float(carrier.get("strength", 0.75)),
+            carrier_highpass_gain=float(carrier.get("highpass_gain", 0.0)),
+            target_kind=str(ckpt.get("target_kind", "unknown")),
         )
 
     def _ids_to_tensors(
@@ -116,7 +134,30 @@ class ScoreResidualStudentRuntime:
         style_idx, prompt_idx = self._ids_to_tensors(style_id, prompt_id, batch_size)
         with torch.no_grad():
             correction = self.model(z, time, style_idx, prompt_idx)
+            if self.prediction_mode == "carrier_anchored":
+                correction, _ = content_affinity_transport(
+                    correction,
+                    z,
+                    temperature=self.carrier_temperature,
+                    strength=self.carrier_strength,
+                    highpass_gain=self.carrier_highpass_gain,
+                )
         return correction[0] if squeeze else correction
+
+    def predict_velocity_correction(
+        self,
+        z_t: Tensor,
+        timestep: float | Tensor,
+        style_id: str | Sequence[str],
+        prompt_id: str | Sequence[str],
+        sigma: float | Tensor,
+    ) -> Tensor:
+        """Return the correction in velocity space for scheduler execution."""
+
+        correction = self.predict_correction(z_t, timestep, style_id, prompt_id)
+        if self.target_kind == "native_delta_score":
+            correction = score_delta_to_velocity_delta(correction, sigma)
+        return correction
 
     def apply_hard_delta(
         self,

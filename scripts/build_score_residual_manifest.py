@@ -45,7 +45,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--out-prefix", default="score_residual_dataset")
     parser.add_argument("--results-dir", default="results")
-    parser.add_argument("--teacher-kind", default="highpass_delta", choices=["highpass_delta", "hard", "ot"])
+    parser.add_argument(
+        "--teacher-kind",
+        default="highpass_delta",
+        choices=["highpass_delta", "hard", "ot", "native_delta_velocity", "native_delta_score"],
+    )
     parser.add_argument("--teacher-lambda", type=float, default=1.0)
     parser.add_argument("--teacher-highpass-kernel", type=int, default=5)
     parser.add_argument(
@@ -73,6 +77,8 @@ def format_float_id(value: float) -> str:
 
 
 def teacher_name(args: argparse.Namespace) -> str:
+    if args.teacher_kind in {"native_delta_velocity", "native_delta_score"}:
+        return args.teacher_kind
     if args.teacher_kind == "hard":
         return "hard_scfg"
     if args.teacher_kind == "ot":
@@ -82,6 +88,12 @@ def teacher_name(args: argparse.Namespace) -> str:
 
 def verify_teacher_tensor(dump: dict, args: argparse.Namespace) -> Dict[str, object]:
     fields = dump["fields"]
+    if args.teacher_kind in {"native_delta_velocity", "native_delta_score"}:
+        teacher = fields[args.teacher_kind].detach().float().cpu()
+        return {
+            "teacher_shape": [int(v) for v in teacher.shape],
+            "teacher_norm": float(torch.linalg.norm(teacher.reshape(teacher.shape[0], -1), dim=1)[0].item()),
+        }
     hard = fields["hard_scfg"].detach().float().cpu()
     ot = fields["otcfg"].detach().float().cpu()
     if args.teacher_kind == "hard":
@@ -107,7 +119,8 @@ def validate_dump(dump: dict, dump_path: Path, args: argparse.Namespace) -> dict
     fields = dump.get("fields")
     if not isinstance(fields, dict):
         raise ValueError(f"Dump has no fields dict: {dump_path}")
-    for key in ("hard_scfg", "otcfg"):
+    required_fields = (args.teacher_kind,) if args.teacher_kind in {"native_delta_velocity", "native_delta_score"} else ("hard_scfg", "otcfg")
+    for key in required_fields:
         if key not in fields:
             raise ValueError(f"Dump missing fields.{key}: {dump_path}")
 
@@ -116,12 +129,17 @@ def validate_dump(dump: dict, dump_path: Path, args: argparse.Namespace) -> dict
         raise ValueError(f"Dump missing latents.z_t; regenerate with --dump-latents: {dump_path}")
 
     z_t = latents["z_t"]
-    hard = fields["hard_scfg"]
-    ot = fields["otcfg"]
-    if tuple(hard.shape) != tuple(ot.shape):
-        raise ValueError(f"hard/ot shape mismatch in {dump_path}: {tuple(hard.shape)} vs {tuple(ot.shape)}")
-    if tuple(z_t.shape) != tuple(hard.shape):
-        raise ValueError(f"z_t/residual shape mismatch in {dump_path}: {tuple(z_t.shape)} vs {tuple(hard.shape)}")
+    if args.teacher_kind in {"native_delta_velocity", "native_delta_score"}:
+        teacher = fields[args.teacher_kind]
+        if tuple(z_t.shape) != tuple(teacher.shape):
+            raise ValueError(f"z_t/native field shape mismatch in {dump_path}: {tuple(z_t.shape)} vs {tuple(teacher.shape)}")
+    else:
+        hard = fields["hard_scfg"]
+        ot = fields["otcfg"]
+        if tuple(hard.shape) != tuple(ot.shape):
+            raise ValueError(f"hard/ot shape mismatch in {dump_path}: {tuple(hard.shape)} vs {tuple(ot.shape)}")
+        if tuple(z_t.shape) != tuple(hard.shape):
+            raise ValueError(f"z_t/residual shape mismatch in {dump_path}: {tuple(z_t.shape)} vs {tuple(hard.shape)}")
 
     style_path = dump.get("style_path")
     if not args.allow_missing_style_path and not style_path:
@@ -159,7 +177,11 @@ def main() -> int:
     for idx, dump_path in enumerate(dump_paths):
         dump = load_dump(dump_path)
         validated = validate_dump(dump, dump_path, args)
-        hard = validated["fields"]["hard_scfg"]
+        hard = (
+            validated["fields"]["hard_scfg"]
+            if "hard_scfg" in validated["fields"]
+            else validated["fields"][args.teacher_kind]
+        )
         z_t = validated["latents"]["z_t"]
 
         style_id = str(dump.get("style_id", "unknown"))
@@ -188,8 +210,8 @@ def main() -> int:
             "field_shape": field_shape,
             "inputs": {
                 "latent": "latents.z_t",
-                "optional_hard_residual": "fields.hard_scfg",
-                "optional_ot_residual": "fields.otcfg",
+                "optional_hard_residual": "fields.hard_scfg" if "hard_scfg" in validated["fields"] else None,
+                "optional_ot_residual": "fields.otcfg" if "otcfg" in validated["fields"] else None,
             },
             "target": {
                 "name": teacher,
@@ -199,6 +221,8 @@ def main() -> int:
                 "formula": (
                     "hard_scfg + lambda * highpass(otcfg - hard_scfg)"
                     if args.teacher_kind == "highpass_delta"
+                    else "native with-style field - native without-style field"
+                    if args.teacher_kind in {"native_delta_velocity", "native_delta_score"}
                     else teacher
                 ),
             },

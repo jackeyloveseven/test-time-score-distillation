@@ -25,6 +25,11 @@ import torch.nn.functional as F
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.flux2_score import velocity_delta_to_score_delta
+
 DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
 MODEL_ROOT = "/mnt/local/klein9b-base"
 STYLE_ROOT = "/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty"
@@ -61,6 +66,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-prefix",
         default="results/native_edit_teacher_field_audit_base9b_s65",
+    )
+    parser.add_argument(
+        "--dump-fields",
+        action="store_true",
+        help="Save native with-minus-without fields for score residual distillation.",
+    )
+    parser.add_argument(
+        "--dump-latents",
+        action="store_true",
+        help="With --dump-fields, save the exact z_t used for each native field.",
     )
     return parser.parse_args()
 
@@ -138,8 +153,19 @@ def set_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+def latent_dump(z_t: torch.Tensor) -> dict[str, object]:
+    value = z_t.detach().to(device="cpu", dtype=torch.float16).contiguous()
+    return {
+        "z_t": value,
+        "z_t_shape": [int(v) for v in value.shape],
+        "z_t_dtype": "float16",
+    }
+
+
 def main() -> int:
     args = parse_args()
+    if args.dump_latents and not args.dump_fields:
+        raise ValueError("--dump-latents requires --dump-fields")
     style_ids = parse_ids(args.style_ids)
     prompt_ids = parse_ids(args.prompt_ids)
     if len(style_ids) < 2 or len(prompt_ids) < 2:
@@ -242,6 +268,9 @@ def main() -> int:
     fields: dict[tuple[str, int, str], torch.Tensor] = {}
     normal_norms: dict[tuple[str, int], float] = {}
     rows: list[dict[str, object]] = []
+    field_dump_dir = output_prefix.parent / f"{output_prefix.name}_fields"
+    if args.dump_fields:
+        field_dump_dir.mkdir(parents=True, exist_ok=True)
 
     for prompt_id in prompt_ids:
         prompt_embeds, text_ids, _ = prompt_conditions[prompt_id]
@@ -275,7 +304,36 @@ def main() -> int:
                         edit_image_ids=edit_ids,
                     )
                 delta = (velocity_with - velocity_without).detach().float().cpu()
+                sigma = scheduler.sigmas[step_index].detach().float().cpu()
+                delta_score, score_coeff = velocity_delta_to_score_delta(delta, sigma)
                 fields[(prompt_id, step_index, style_id)] = delta
+                if args.dump_fields:
+                    dump_payload = {
+                        "style_id": style_id,
+                        "style_path": str(style_path),
+                        "prompt_id": prompt_id,
+                        "prompt_text": prompt_conditions[prompt_id][2],
+                        "timestep": float(timestep_cpu.item()),
+                        "step_index": step_index,
+                        "height": args.height,
+                        "width": args.width,
+                        "fields": {
+                            "native_delta_velocity": delta,
+                            "native_delta_score": delta_score,
+                        },
+                        "sigma": float(sigma.item()),
+                        "score_delta_coefficient": float(score_coeff.item()),
+                        "teacher_type": "native_with_minus_without_score",
+                        "model_root": str(model_root),
+                        "seed": args.seed,
+                        "num_steps": args.num_steps,
+                    }
+                    if args.dump_latents:
+                        dump_payload["latents"] = latent_dump(latents)
+                    dump_path = field_dump_dir / (
+                        f"{output_prefix.name}_{prompt_id}_{style_id}_step{step_index}_t{int(round(float(timestep_cpu.item())))}.pt"
+                    )
+                    torch.save(dump_payload, dump_path)
                 rows.append(
                     {
                         "axis": "field",
@@ -284,6 +342,7 @@ def main() -> int:
                         "step_index": step_index,
                         "timestep": float(timestep_cpu.item()),
                         "delta_norm": tensor_norm(delta),
+                        "score_delta_norm": tensor_norm(delta_score),
                         "normal_velocity_norm": normal_norms[(prompt_id, step_index)],
                         "delta_to_normal_norm": tensor_norm(delta)
                         / max(normal_norms[(prompt_id, step_index)], 1e-12),
@@ -348,6 +407,9 @@ def main() -> int:
         "top_timestep_prompt_metrics": top_prompt,
         "reference_metrics": reference_metrics,
         "prompt_metrics": prompt_metrics,
+        "dump_fields": bool(args.dump_fields),
+        "dump_latents": bool(args.dump_latents),
+        "field_dump_dir": str(field_dump_dir) if args.dump_fields else None,
         "historical_kv_teacher_comparison": {
             "old_dynamic_reference_energy_fraction_at_t1000": 0.0,
             "source": "docs/klein9b_probe_notes.md reference-information onset audit",

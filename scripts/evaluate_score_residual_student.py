@@ -23,6 +23,7 @@ from scripts.train_score_residual_student import (  # noqa: E402
     ScoreResidualDataset,
     batch_metrics,
     choose_device,
+    compose_prediction,
     load_jsonl,
     split_indices_from_rows,
 )
@@ -92,6 +93,10 @@ def evaluate_scale(
     device: torch.device,
     scale: float,
     spectral_kernel: int,
+    prediction_mode: str,
+    carrier_temperature: float,
+    carrier_strength: float,
+    carrier_highpass_gain: float,
 ) -> Dict[str, float]:
     metric_rows: List[Dict[str, float]] = []
     extra_rows: List[Dict[str, float]] = []
@@ -110,15 +115,35 @@ def evaluate_scale(
             if not torch.all(heights == height).item() or not torch.all(widths == width).item():
                 raise ValueError("All samples in a batch must share height/width.")
 
-            correction = model(z_t, timestep, style_idx, prompt_idx)
-            pred = hard + float(scale) * correction
+            raw_correction = model(z_t, timestep, style_idx, prompt_idx)
+            rendered, _ = compose_prediction(
+                raw_correction,
+                z_t,
+                hard,
+                prediction_mode,
+                carrier_temperature=carrier_temperature,
+                carrier_strength=carrier_strength,
+                carrier_highpass_gain=carrier_highpass_gain,
+            )
+            if prediction_mode == "carrier_anchored":
+                pred = float(scale) * rendered
+                correction = rendered
+                base = torch.zeros_like(teacher)
+            elif prediction_mode == "hard_delta":
+                pred = hard + float(scale) * raw_correction
+                correction = raw_correction
+                base = hard
+            else:
+                pred = float(scale) * raw_correction
+                correction = raw_correction
+                base = torch.zeros_like(teacher)
             metric_rows.append(batch_metrics(pred, hard, teacher, height, width, spectral_kernel))
 
-            target_delta = teacher - hard
+            target_delta = teacher - base
             correction_f = flatten_batch(correction.float())
             target_delta_f = flatten_batch(target_delta.float())
             scaled_delta_f = float(scale) * correction_f
-            hard_f = flatten_batch(hard.float())
+            hard_f = flatten_batch(base.float())
             teacher_f = flatten_batch(teacher.float())
             pred_f = flatten_batch(pred.float())
             extra_rows.append(
@@ -193,6 +218,10 @@ def main() -> int:
             device=device,
             scale=scale,
             spectral_kernel=args.spectral_kernel,
+            prediction_mode=str(ckpt.get("prediction_mode", "hard_delta")),
+            carrier_temperature=float(ckpt.get("carrier", {}).get("temperature", 0.1)),
+            carrier_strength=float(ckpt.get("carrier", {}).get("strength", 0.75)),
+            carrier_highpass_gain=float(ckpt.get("carrier", {}).get("highpass_gain", 0.0)),
         )
         row = {"checkpoint": str(args.checkpoint), **metrics}
         sweep_rows.append(row)
@@ -216,6 +245,8 @@ def main() -> int:
         "checkpoint": str(args.checkpoint),
         "checkpoint_epoch": ckpt.get("epoch"),
         "checkpoint_metric": ckpt.get("metric"),
+        "prediction_mode": ckpt.get("prediction_mode", "hard_delta"),
+        "carrier": ckpt.get("carrier"),
         "split": split_meta,
         "num_samples": len(dataset),
         "num_train": len(train_indices),
