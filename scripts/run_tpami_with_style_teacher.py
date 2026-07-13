@@ -6,7 +6,7 @@ This keeps the original optimization skeleton:
 2. prepare the same post-Step1 latent state ``z_sigma`` at ``timestep_style=i+1``;
 3. keep AdaIN / SLT warm-start behavior, with optional latent-space GRAG-style
    compression for the warm-start itself;
-4. optimize the current latent with Adam while preserving ``dist_loss`` and
+4. optimize the current latent with AdamW while preserving ``dist_loss`` and
    ``content_loss``;
 5. replace only the old ``style_loss`` with a native edit teacher objective.
 """
@@ -148,6 +148,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--embedded-guidance", type=float, default=0.0)
     parser.add_argument("--start-time", type=float, default=850.0)
     parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument(
+        "--latent-optimizer",
+        default="adamw",
+        choices=["adam", "adamw"],
+        help="Optimizer for the inner latent updates; Adam remains available for matched ablations.",
+    )
+    parser.add_argument(
+        "--latent-weight-decay",
+        type=float,
+        default=0.0,
+        help="Decoupled AdamW weight decay for latent updates; keep at zero to isolate optimizer effects.",
+    )
     parser.add_argument("--iters", type=int, default=5)
     parser.add_argument("--disable-dynamic-iters", action="store_true")
     parser.add_argument(
@@ -852,7 +864,14 @@ def inner_optimize(
 ) -> tuple[torch.Tensor, list[dict[str, object]]]:
     loss_fn = torch.nn.L1Loss()
     latents = latents.detach().requires_grad_(True)
-    optimizer = torch.optim.Adam([latents], lr=args.lr)
+    if args.latent_optimizer == "adamw":
+        optimizer = torch.optim.AdamW(
+            [latents],
+            lr=args.lr,
+            weight_decay=args.latent_weight_decay,
+        )
+    else:
+        optimizer = torch.optim.Adam([latents], lr=args.lr)
     step_logs: list[dict[str, object]] = []
 
     timestep_style_cuda = timestep_style.to(device=latents.device, dtype=latents.dtype)
@@ -1796,6 +1815,9 @@ def main() -> int:
         "width": args.width,
         "num_steps": args.num_steps,
         "start_time": args.start_time,
+        "lr": float(args.lr),
+        "latent_optimizer": args.latent_optimizer,
+        "latent_weight_decay": float(args.latent_weight_decay),
         "timesteps": [float(t.item()) for t in timesteps],
         "sigmas": [float(s.item()) for s in scheduler.sigmas],
         "rows": row_logs,

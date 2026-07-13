@@ -12,6 +12,8 @@ logs, and generated outputs belong to this repository.
 - sampler: 25 outer steps, 5 inner iterations
 - loss isolation: SLT disabled, warm-start AdaIN disabled, final AdaIN disabled
 - gradient matching: `style-grad-rms-target=2.159326726314248e-06`
+- latent optimizer: AdamW (`--latent-optimizer adamw`); `--latent-weight-decay 0`
+  isolates the optimizer choice from an explicit latent norm penalty
 - evaluation: CSD style similarity, CLIP-T, DINO style similarity, VGG Gram distance, DINO layout leakage
 
 The native teacher uses the same post-Step1 `z_sigma`, timestep, model, and
@@ -68,6 +70,30 @@ signal than the K/V replacement baseline on these paired samples, while Gram
 distance and layout leakage remain open trade-offs rather than solved claims.
 The result is not yet a multi-seed benchmark.
 
+## Latent Optimizer Check
+
+The inner latent update now exposes both `adam` and `adamw`. AdamW is the
+default implementation, while `--latent-weight-decay` is reported separately.
+The formal protocol uses `--latent-weight-decay 0` because the optimized object
+is a latent, not a trainable network, and a nonzero decay can change the
+content/style trade-off rather than simply improve optimization.
+
+On the `style27/kp0` pair, the matched `score_carrier` comparison was:
+
+| optimizer | decay | CSD style sim | CLIP-T | DINO style sim | VGG Gram dist | DINO layout leak |
+|---|---:|---:|---:|---:|---:|---:|
+| Adam | 0 | 0.67643 | 0.31872 | 0.07335 | 2.37964 | 0.30491 |
+| AdamW | 0 | 0.67581 | 0.32689 | 0.07002 | 2.47064 | 0.30430 |
+| AdamW | 1e-4 | **0.70453** | 0.31981 | 0.06264 | 2.40385 | 0.31243 |
+| AdamW | 1e-3 | 0.68131 | 0.31580 | 0.06885 | 2.49848 | 0.30836 |
+
+The three-pair check (`00/kp1`, `13/kp3`, `27/kp0`) gives a more conservative
+picture for AdamW with decay `1e-4`: CSD `0.56618 -> 0.56070`, CLIP-T
+`0.31768 -> 0.31851`, DINO style `0.06185 -> 0.06490`, Gram `4.08912 ->
+4.11729`, and layout leakage `0.34791 -> 0.35168`. We therefore keep AdamW as
+the implementation default with zero decay, and treat nonzero decay as an
+explicit regularization ablation rather than part of the core teacher claim.
+
 ## Reproduction
 
 Run each method from the repository root. The representative command is:
@@ -79,6 +105,7 @@ Run each method from the repository root. The representative command is:
   --num-steps 25 --iters 5 --start-time 1000 \\
   --style-mode score_carrier \\
   --style-grad-rms-target 2.159326726314248e-06 \\
+  --latent-optimizer adamw --latent-weight-decay 0 \\
   --dist-weight 0.3 --content-weight 0.4 \\
   --carrier-temperature 0.1 --carrier-strength 0.75 \\
   --carrier-highpass-gain 0 --carrier-loss-weight 0.25 \\
