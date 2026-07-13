@@ -1,4 +1,4 @@
-# Goal, Carrier, and Flow: Image-Conditioned Score Residual Distillation for Style Transfer
+# Goal, Carrier, and Flow: Online Image-Conditioned Score Distillation for Style Transfer
 
 ## Abstract
 
@@ -11,17 +11,18 @@ and late denoising blocks translate the carried goal into an executable flow
 update. We turn this observation into a decoupled image-CFG formulation. A
 native with-reference score is differenced against the same-state
 without-reference score to obtain the style goal, while a reference-independent
-content affinity transports that goal across the current latent tokens. A
-student then distills the resulting score residual, optionally with a
-carrier-anchored parameterization that does not require reference K/V at
-inference. The main conditioning path uses a frozen, deterministic reference
-image code derived from the FLUX VAE; style-ID conditioning is retained only as
-an ablation. The current implementation includes reproducible native teacher
-dumps, score/velocity conversion, carrier-anchored training, image-conditioned
-runtime sampling, and CA-only / CA+DMD teacher objectives. Initial matched field
-experiments favor carrier anchoring over unconstrained full residual
-regression, while image-level and multi-seed results remain an active validation
-gate.
+content affinity transports that goal across the current latent tokens. At
+inference, the current latent is updated directly with this carrier-anchored
+score objective, so the method does not require offline student training. An
+optional image-conditioned student amortizes the same field when repeated
+deployment latency matters. The main conditioning path uses a frozen,
+deterministic reference image code derived from the FLUX VAE; style-ID
+conditioning is retained only as an ablation. The implementation includes
+reproducible native teacher evaluation, score/velocity conversion, online
+CA-only and CA+DMD objectives, and an optional offline student path. Initial
+matched field experiments favor carrier anchoring over unconstrained full
+residual regression, while image-level and multi-seed results remain an active
+validation gate.
 
 ## 1. Introduction
 
@@ -43,7 +44,8 @@ This decomposition explains a recurring failure pattern. A method may recover
 the desired palette or material but place texture on the wrong object. The goal
 is present, but the spatial carrier is wrong. Conversely, a strong content
 carrier can preserve layout while failing to express the reference style. The
-student should therefore not learn both roles as one unconstrained residual.
+online update should therefore not rediscover both roles as one unconstrained
+residual.
 
 We study this problem through the Think with Image lens: the reference is an
 instruction-bearing image, not a class label or a retrieval key. The paper has
@@ -53,8 +55,9 @@ three contributions:
    native score differences and carrier interventions as measurable probes.
 2. A decoupled image-CFG teacher that separates reference-dependent style goal
    from reference-independent content transport.
-3. A carrier-anchored score residual student conditioned on a real reference
-   image code, with CA-only and CA+DMD objectives as explicit variants.
+3. An online carrier-anchored score refinement objective conditioned on a real
+   reference image, with offline score-student distillation as an optional
+   acceleration variant.
 
 ## 2. Problem Formulation
 
@@ -135,33 +138,57 @@ g_rendered = g_theta + lambda_CA ( A(z_t) g_theta - g_theta )
 An optional high-pass term preserves local variation. The reference is absent
 from `A(z_t)`, so the carrier cannot directly copy the reference layout.
 
-### 3.4 Carrier-anchored student
+### 3.4 Online carrier-anchored score refinement
 
-The main student is:
+The main method operates directly on the current sample. It first computes the
+native style goal, renders it through the content carrier, and applies the
+resulting detached pseudo-gradient to the current latent:
+
+```text
+goal_score = score_with_reference(z_t) - score_without_reference(z_t)
+goal_rendered = Transport(goal_score, A(z_t))
+z_target = stopgrad(z_t + eta * Normalize(goal_rendered))
+```
+
+The latent optimizer then minimizes the distance to `z_target` while retaining
+the existing content and distribution safeguards. This is score distillation
+performed online for the current reference and current trajectory; no global
+student parameters are updated.
+
+The objective can be written as:
+
+```text
+L_online = L_dist + lambda_content L_content
+         + lambda_CA L_CA
+         + lambda_DMD L_DMD
+```
+
+For `ca_only`, `lambda_DMD=0`. For `ca_dmd`, the fake score contributes the
+detached distribution correction described below. Carrier-anchored online mode
+does not require reference K/V replacement; the older hard-delta path remains
+a direct K/V carrier baseline.
+
+### 3.5 Optional offline student acceleration
+
+The offline student is not part of the required method. It is trained only when
+the same teacher correction must be served repeatedly at lower inference cost:
 
 ```text
 g_theta = G_theta(z_t, t, p, c_s)
 g_rendered = Transport(g_theta, A(z_t))
+L_field = ||g_rendered - Delta s_native||^2 + lambda_cos L_cos
 ```
 
-The field loss is applied to the rendered goal:
+At deployment it replaces the expensive native teacher branches with one
+student forward per step. This is an amortization and latency ablation, not the
+definition of the proposed online method.
 
-```text
-L_field = ||g_rendered - Delta s_native||_2^2
-        + lambda_cos (1 - cos(g_rendered, Delta s_native))
-        + lambda_hf L_highpass
-```
-
-At inference, the score residual is converted back to velocity and added to
-the normal native velocity. Carrier-anchored mode does not capture or inject
-reference K/V. The older hard-delta path remains a direct K/V carrier baseline.
-
-### 3.5 CA-only and CA+DMD
+### 3.6 CA-only and CA+DMD
 
 CA has two distinct roles in the paper and they must not be conflated.
 
-The carrier-anchored student uses CA as a structural renderer. The TPAMI-style
-latent objective additionally exposes an explicit CA pseudo-guidance loss:
+The online method uses CA as a structural renderer and exposes an explicit CA
+pseudo-guidance loss:
 
 ```text
 g_CA = (cfg_scale - 1) Delta s_CA
@@ -250,12 +277,13 @@ references, and scheduler settings:
 ```text
 normal no-style baseline
 hard/KV carrier baseline
-CA-only native objective
-CA+DMD with persistent fake-score state
-full native score residual
-carrier-anchored native score residual
+online CA-only native objective (main)
+online CA+DMD with persistent fake-score state
+online score-only objective without CA
+offline full residual student (acceleration ablation)
+offline carrier-anchored student (acceleration ablation)
 style-ID conditioning ablation
-image-code conditioning main model
+image-code conditioning main path
 reference-layout carrier swap / token shuffle
 ```
 
@@ -275,7 +303,20 @@ All source and generated experiment metadata live under:
 The original source directory is read-only reference material and is not part
 of the implementation.
 
-Native field collection:
+Online main-method smoke:
+
+```bash
+/home/ubuntu/chengyanli/flux/bin/python3 \
+  scripts/run_tpami_with_style_teacher.py \
+  --style-id 27 --prompt-id kp0 --seed 64 \
+  --num-steps 25 --iters 5 --start-time 1000 \
+  --style-mode ca_only \
+  --latent-optimizer adamw --latent-weight-decay 0 \
+  --disable-slt --adain-alpha 0 --disable-final-adain \
+  --out-prefix online_ca_only_formal25_s27_kp0_seed64
+```
+
+Native field collection for the optional offline acceleration study:
 
 ```bash
 /home/ubuntu/chengyanli/flux/bin/python3 \
@@ -286,7 +327,7 @@ Native field collection:
   --output-prefix results/native_carrier_goal_s65
 ```
 
-Image-conditioned training:
+Optional image-conditioned student training:
 
 ```bash
 /home/ubuntu/chengyanli/flux/bin/python3 \
@@ -300,18 +341,21 @@ Image-conditioned training:
   --device cuda
 ```
 
-The image sampler computes the same pooled VAE code from the supplied
-reference image. The checkpoint records conditioning mode, target space,
-carrier parameters, style/prompt maps, and the complete training config.
+The image sampler computes the same pooled VAE code from the supplied reference
+image. The checkpoint records conditioning mode, target space, carrier
+parameters, style/prompt maps, and the complete training config. This command
+is not needed to reproduce the online main method.
 
 ## 6. Limitations and Claim Boundary
 
 The present evidence establishes a working native score/velocity data contract,
-a non-identity content carrier, and a real image-code training/runtime path.
-It does not yet establish universal image-quality superiority over K/V
-replacement. The main remaining gates are multi-seed grouped holdouts, exact
-unseen-reference evaluation, a stronger image encoder ablation, layer-level
-goal/carrier/executor probes, and a dataset-level dynamic CA+DMD experiment.
+a non-identity content carrier, and an online CA-only/CA+DMD implementation
+path. The offline image-code student is an acceleration study, not evidence
+that the main method requires training. The method does not yet establish
+universal image-quality superiority over K/V replacement. The main remaining
+gates are multi-seed grouped holdouts, exact unseen-reference evaluation, a
+stronger image encoder ablation, layer-level goal/carrier/executor probes, and
+a dataset-level dynamic CA+DMD experiment.
 
 Until those gates are complete, the correct claim is that carrier anchoring is
 a promising decomposition that improves native field direction and provides a

@@ -226,21 +226,25 @@ This is a teacher construction, not yet a universal theorem. Its role must be
 validated against alternative teacher compositions, including full OTCFG,
 low-pass-only, no carrier, and Hyperion output-derived fields.
 
-## Carrier-Anchored Score Distillation
+## Online Carrier-Anchored Score Distillation
 
-The empirically strongest current target is not full residual prediction. It is
-the correction on top of the explicit carrier:
+The main method applies the reference-conditioned score correction directly to
+the current latent. It is not necessary to train a global student:
 
 ```text
-r*(z_t,t,p,x_s) = Delta v_T* - Delta v_carrier
-r_theta          = R_theta(z_t,t,E_txt(p),E_img(x_s))
-v_student        = v_normal + Delta v_carrier + alpha * r_theta
+goal_score      = score_with_reference(z_t) - score_without_reference(z_t)
+goal_rendered   = Transport(goal_score, Affinity(content_state))
+z_target        = stopgrad(z_t + eta * Normalize(goal_rendered))
+z_next          = argmin_z L_dist(z, z_target) + L_content(z) + L_DMD(z)
 ```
 
-This parameterization matches the motivation: the method does not ask the
-student to rediscover spatial structure and visual intent simultaneously. It
-anchors the edit to a known content carrier and learns how the reference-image
-goal should modify the executable flow.
+This parameterization matches the motivation: the online update does not ask a
+single unconstrained residual to rediscover spatial structure and visual intent
+simultaneously. CA decides where the goal is rendered, while the native score
+decides what style change is desired.
+
+An offline student can amortize this update for repeated deployment, but it is
+an acceleration variant rather than a requirement of the method.
 
 The main ablations are:
 
@@ -259,7 +263,14 @@ object is an image-conditioned score/velocity field.
 
 The paper must distinguish three objectives clearly.
 
-### Stage A: Offline field distillation
+### Stage A: Online score refinement
+
+At each optimized denoising state, evaluate the same-state native branches and
+apply the CA-rendered score correction to the current latent. The current
+`ca_only` and `score_carrier` runners implement this route without updating
+global network parameters.
+
+### Stage B: Offline field distillation (optional acceleration)
 
 This is what the current code verifies. Teacher and student fields are measured
 at identical saved states:
@@ -273,7 +284,7 @@ L_field = E[lambda_mse ||r_theta-r*||_2^2
 This stage is reproducible, stable, and gives a direct test of whether the
 reference-conditioned correction field is learnable.
 
-### Stage B: On-policy field aggregation
+### Stage C: On-policy field aggregation
 
 Offline regression sees normal/teacher probe states and can suffer
 state-distribution shift when the student samples its own trajectory. The first
@@ -287,22 +298,22 @@ r*_t = H_grid(v_ot(z_t,t,x_s) - v_hard(z_t,t,x_s))
 L_on_policy = ||r_theta(z_t,t,p,x_s) - stopgrad(r*_t)||
 ```
 
-### Stage C: Proper DMD, only if required
+### Stage D: Proper DMD, only if required
 
 DMD becomes justified only when a separate fake-distribution score is fitted
 dynamically on generated samples and the generator is updated using the target
-versus fake score difference. The student velocity field itself is not the
-score of its generated distribution. If Stage B closes the trajectory gap,
-Stage C is unnecessary and the paper should remain a velocity/field
-distillation method.
+versus fake score difference. An offline student velocity field is not itself
+the score of its generated distribution. If online CA-only already closes the
+quality gap, the paper should not promote DMD or student training into the main
+claim.
 
 Recommended training order:
 
 ```text
-1. field-regression warm start on real teacher dumps;
-2. student-state field aggregation and repeated regression;
-3. measure the remaining distribution gap;
-4. only then adapt a fake-score + target-score DMD objective;
+1. online CA-only refinement as the main method;
+2. add the online fake-score correction for CA+DMD;
+3. optionally amortize the online field into an image-conditioned student;
+4. measure the remaining distribution gap before making a formal DMD claim;
 5. optional human/preference weighting for style-content trade-off.
 ```
 
@@ -412,19 +423,19 @@ a reference-specific appearance correction at the same denoising state.
 Claim gate: the decoupled teacher must outperform carrier-only and monolithic
 reference injection on style fidelity at matched content preservation.
 
-### Contribution 3: Carrier-anchored reference-set velocity distillation
+### Contribution 3: Online carrier-anchored reference-image score refinement
 
-We amortize the teacher into an image-conditioned residual field, using the
-explicit carrier as an anchor and optionally refining the student on its own
-trajectories through field aggregation. The reference is represented as
-unordered appearance prototypes queried by the current content carrier, rather
-than by a style ID or ordered reference coordinates. The result should retain
-unseen-reference control while removing the expensive OT teacher forward.
+We apply the native reference-conditioned score correction online, using the
+explicit content carrier to control spatial rendering. The reference is treated
+as an image instruction rather than a style ID or ordered reference layout.
+Offline image-conditioned residual distillation is reported only as an optional
+acceleration path.
 
-Claim gate: the main model must consume real images, beat the hard carrier on
-held-out references, avoid reference-layout leakage, and report
-quality-efficiency trade-offs. DMD is an optional additional claim only after a
-dynamic fake-score estimator is implemented.
+Claim gate: the online method must consume real images, improve the
+style/content Pareto frontier over the hard carrier on held-out references,
+avoid reference-layout leakage, and report latency and teacher-forward cost.
+DMD is an optional additional claim only after a dynamic fake-score estimator is
+implemented.
 
 ## Experiments Organized by the Story
 
@@ -467,17 +478,17 @@ decoupled teacher
 Report style fidelity versus content fidelity as a Pareto curve, residual
 spatial coherence, reference-layout leakage, and per-frequency error.
 
-### RQ3: Can the field be distilled without losing image-conditioned control?
+### RQ3: Can online refinement preserve image-conditioned control?
 
 Compare:
 
 ```text
-style-ID memorization scaffold
-adapter baseline
-full residual student
-carrier-anchored image-conditioned student
-field regression + student-state field aggregation
-proper DMD with a dynamic fake-score estimator, if implemented
+normal / hard carrier baselines
+online score-only
+online CA-only
+online CA+DMD
+optional full residual student
+optional carrier-anchored image-conditioned student
 teacher upper bound
 ```
 
@@ -581,8 +592,8 @@ reference into a category label.
    residual; all branches share `(z_t,t)`.
 3. **Causal decomposition:** goal patch, carrier swap, and executor patch.
 4. **Teacher Pareto frontier:** style fidelity versus content preservation.
-5. **Student comparison:** default, carrier, teacher, distilled student across
-   unseen references.
+5. **Online comparison:** score-only, CA-only, CA+DMD, and the teacher across
+   unseen references; report the offline student only as an acceleration study.
 6. **Generalization and efficiency:** held-out family results and speed/memory.
 
 ## Current Evidence and Honest Boundary
