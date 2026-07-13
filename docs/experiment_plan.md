@@ -1,182 +1,131 @@
-# Experiment Plan
+# Experiment Plan and Reporting Protocol
 
-## Stage 0: Sanity
+This is the current experiment plan. Earlier adapter and residual plans remain
+in the other notes for provenance; they do not replace this protocol.
 
-Goal: make sure residual guidance is implemented without scheduler artifacts.
+## Main Hypothesis
 
-Run small set:
+The native reference-conditioned score identifies **what** visual change is
+desired, while a content-derived carrier determines **where** that change can
+be rendered without copying the reference layout. Online refinement should
+therefore outperform unconstrained score matching on the style/layout tradeoff
+at comparable compute.
 
-```text
-styles: 00, 10, 27, 28
-prompts: kp0, kp1, kp2
-seeds: 43
-resolution: 512
-steps: 25
-```
+## Fixed Formal Protocol
 
-Baselines:
-
-- text-only
-- inject
-- scfg fixed scale
-- slt/ot-cfg fixed scale
-- sds
-- Hyperion/hybrid teacher
-
-Metrics:
-
-- CSD
-- CLIP-T
-- time
-- forward/backward count
-
-Required check:
-
-- each timestep calls `scheduler.step` exactly once.
-
-## Stage 1: Residual Field Diagnostics
-
-For each active denoising step, record:
+Use one fixed protocol for every method in a comparison:
 
 ```text
-delta_v_scfg = v_inject - v_normal
-delta_v_otcfg = v_sinkhorn - v_normal
-g_sds = -grad(style_loss)
-g_hyperion = -grad(hyperion_style_loss)
-delta_z_hyperion = z_after_hyperion - z_before_hyperion
+styles/prompts: 00/kp1, 13/kp3, 27/kp0
+seeds:          64, 65, 66
+resolution:     512 x 512
+outer steps:    25
+inner iters:    5
+start-time:     1000
+optimizer:      AdamW, latent weight decay 0
+SLT:            disabled
+warm AdaIN:     disabled
+final AdaIN:    disabled
+dist weight:    0.3
+content weight: 0.4
 ```
 
-Diagnostics:
+Change one factor at a time. Use a fresh output prefix for each run and add a
+manifest row immediately after the image is produced.
+
+## Required Methods
 
 ```text
-cos(delta_v_scfg, g_hyperion)
-cos(delta_v_otcfg, g_hyperion)
-cos(delta_v_scfg, delta_z_hyperion)
-cos(delta_v_otcfg, delta_z_hyperion)
-rho(delta_v_scfg)
-rho(delta_v_otcfg)
-rho(g_hyperion)
-high_freq_energy(delta_v)
-low_freq_energy(delta_v)
+normal/content baseline
+kv_match
+score_match
+ca_only                  current main method
+score_carrier            native score plus carrier comparison
+ca_dmd                   CA plus dynamic fake-score correction
+offline full residual    optional acceleration ablation
+offline carrier student  optional acceleration ablation
 ```
 
-Success criterion:
+The `ca_dmd` row is not complete until the fake-score backend state, replay
+behavior, and update schedule are recorded. A code path existing is not the
+same as a validated DMD experiment.
 
-- `delta_v_otcfg` has higher cosine with Hyperion teacher than naive injection.
-- `delta_v_otcfg` has higher spatial neighbor cosine than SLT-only token update.
-- residual fields show nontrivial high-frequency texture energy.
+## Metrics
 
-## Stage 2: Scale Sweep
-
-Sweep:
+Image-level evaluator:
 
 ```text
-SCFG_SCALE: 0.5, 1.0, 2.0, 3.0, 5.0, 7.0
-SLT_GUIDE_SCALE: 0.5, 1.0, 2.0, 3.0, 5.0, 7.0
-INJECT_BETA: 0.3, 0.5, 0.7, 1.0
-SLT_ALPHA: 0.05, 0.10, 0.20
-SLT_TAU: 0.01, 0.02, 0.05
+CSD style similarity  higher is better
+CLIP-T                higher is better
+DINO style similarity higher is better
+VGG Gram distance     lower is better
+DINO layout leakage   lower is better
 ```
 
-Output:
-
-- CSD/CLIP-T Pareto curve
-- residual norm distribution
-- failure examples for over-guidance
-
-Expected risk:
-
-- large residual scale may cause layout drift or prompt semantic damage.
-
-## Stage 3: Residual Purification
-
-Test whether LRS/GRAG makes the residual more style-specific:
+Field-level evaluator:
 
 ```text
-GRAG_DEEP: 1.0, 0.7, 0.5, 0.3
-GRAG_SHALLOW: 1.0, 0.75, 0.7
+MSE to native field
+direction cosine
+spatial neighbor coherence
+low/high-frequency energy
+one-step image effect
 ```
 
-Measure:
-
-- layout leakage
-- CLIP-T drop
-- CSD
-- residual cosine to Hyperion gradient
-
-Hypothesis:
-
-LRS/GRAG should reduce layout-carrying components in `delta_v` while preserving
-texture direction.
-
-## Stage 4: Dataset Dump
-
-Dump residual dataset over:
+Systems metrics:
 
 ```text
-styles: paper subset first, then full 39 styles
-prompts: 30 prompts if available
-seeds: 43, optionally 44/45
-timesteps: all active steps or selected t bins
+wall-clock time
+native teacher forward count
+reference-conditioned forward count
+backward count
+peak VRAM
 ```
 
-Shard naming:
+## Current Completed Evidence
+
+CA-only nine-run mean/std:
 
 ```text
-results/residual_dataset/shard_00000.pt
-results/residual_dataset/metadata.jsonl
-results/residual_dataset/summary.csv
+CSD style similarity: 0.5605 +/- 0.0662
+CLIP-T:               0.3287 +/- 0.0171
+DINO style similarity:0.0602 +/- 0.0225
+VGG Gram distance:    3.9673 +/- 1.3332
+DINO layout leakage:  0.3444 +/- 0.0363
 ```
 
-Keep tensor dtype:
+Field conditioning results are documented in `AGENT_HANDOFF.md` and
+`full_paper_draft.md`. The current pooled VAE reference code is reproducible,
+but its grouped holdout result is not enough to claim universal image-level
+generalization.
 
-- bfloat16 for large velocity tensors
-- float32 for diagnostics
+## Next Run Matrix
 
-## Stage 5: Distillation
-
-Start with direction prediction, not full image quality.
-
-Train:
+For each method, produce the same nine cases:
 
 ```text
-student(z_t, t, prompt_embed, style_embed) -> delta_v
+(style=00, prompt=kp1, seed=64/65/66)
+(style=13, prompt=kp3, seed=64/65/66)
+(style=27, prompt=kp0, seed=64/65/66)
 ```
 
-Initial losses:
+First run `score_carrier`, then `ca_dmd`, then the carrier weight sweep. Store:
 
-```tex
-L = L_2 + 0.1 L_\mathrm{dir}
+```text
+agent_runs/<method>_<case>.log
+results/<method>_<case>.png
+results/<method>_manifest.csv
+results/<method>_metrics.csv
+results/<method>_metrics_summary.json
 ```
 
-Validation:
+## Analysis Rules
 
-- residual MSE
-- direction cosine
-- spatial neighbor cosine match
-- frequency energy match
-- one-step guided sampling quality
-
-Only after this passes should we run full image generation metrics.
-
-## Stage 6: Paper-Level Benchmarks
-
-Compare:
-
-- Hyperion teacher
-- style CFG residual
-- OT-CFG residual
-- SDS one-backward
-- distilled student
-- trained adapters if needed
-
-Report:
-
-- CSD
-- CLIP-T
-- CLIP-I for I2I if included
-- time / forward count / backward count
-- spatial neighbor cosine
-- field cosine to Hyperion teacher
-- qualitative grid
-
+- Use mean and standard deviation across seeds, not the best seed.
+- Keep style/prompt pairing fixed when comparing methods.
+- Report scalar metrics with qualitative grids.
+- Separate field fidelity from final image quality.
+- Separate online compute from offline training cost.
+- Treat layout leakage and Gram distance as tradeoffs until all methods use the
+  same preprocessing and evaluator checkpoints.
+- Mark hypotheses as hypotheses until causal layer probes are complete.

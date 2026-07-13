@@ -1,87 +1,49 @@
-# TODO
+# Current TODO
 
-## Current Status
+The authoritative status and command details are in
+`docs/AGENT_HANDOFF.md`. This file is intentionally short enough to use as a
+working queue.
 
-Created project directory:
+## Done
 
-```text
-/home/ubuntu/chengyanli/items/style_residual_distill_20260709
-```
+- Isolated all implementation under `style_residual_distill_20260709`.
+- Implemented native same-state with-style score/velocity residuals.
+- Implemented score-to-velocity conversion for FLUX.2 rectified flow.
+- Implemented content-affinity carrier transport.
+- Added online `ca_only`, `score_carrier`, and `ca_dmd` execution paths.
+- Added optional offline carrier-anchored image-code student.
+- Added AdamW latent optimizer support with explicit weight decay.
+- Added regression tests; last verified result: `53 tests, OK`.
+- Completed online CA-only 3-reference x 3-seed validation.
+- Updated paper draft, story blueprint, README, and handoff documentation.
 
-Found relevant old-code prototypes:
+## P0: Next Experiments
 
-```text
-custom_main_klein9b_t2i.py: OPTIM_MODE=scfg
-custom_main_klein9b_t2i.py: OPTIM_MODE=sds
-custom_main_klein9b_t2i.py: OPTIM_MODE=slt
-custom_main_klein9b_t2i.py: OPTIM_MODE=hybrid
-```
+1. Run nine matched `score_carrier` samples with the same protocol as CA-only.
+2. Run nine matched `ca_dmd` samples with persistent fake-score state.
+3. Sweep `carrier_loss_weight` while fixing all other flags.
+4. Evaluate every method using the same manifest schema and metric models.
+5. Assemble a qualitative grid before making an image-quality claim.
 
-Both Klein9B custom files pass `py_compile`:
+## P1: Method Validation
 
-```text
-custom_main_klein9b.py
-custom_main_klein9b_t2i.py
-```
+- Verify fake-score optimizer, timestep sampling, replay, save, and resume.
+- Compare CA-only, score-carrier, score-match, K/V match, and CA+DMD at equal
+  compute budgets.
+- Add explicit teacher/reference forward counts and wall-clock measurements.
+- Add exact unseen-reference and unseen-style-family splits.
 
-## Next Engineering Tasks
+## P2: Paper Strengthening
 
-1. Copy minimal runtime into `src/klein_runtime.py`.
-2. Copy attention hook/controller into `src/attention_hooks.py`.
-3. Refactor residual computation into `src/residuals.py`.
-4. Fix `scfg` and `slt` to compute normal/styled velocity before the scheduler
-   step and call `scheduler.step` exactly once per timestep.
-5. Add a debug flag to save per-step residual tensors.
-6. Implement `scripts/profile_residual_fields.py`.
-7. Run 4-style x 3-prompt sanity experiment.
-8. Compare:
+- Test a stronger frozen image encoder against the pooled VAE mean/std code.
+- Run layer probes for early goal, spatial carrier, and late flow executor.
+- Report field cosine, spatial coherence, frequency energy, and layout leakage.
+- Keep the DMD claim conditional until the dynamic fake-score experiment passes.
 
-```text
-delta_v_scfg
-delta_v_otcfg
-g_sds
-g_hyperion
-delta_z_hyperion
-```
+## Guardrails
 
-9. Write first result table:
-
-```text
-method, CSD, CLIP-T, time, fwd_count, bwd_count, rho, cos_to_hyperion
-```
-
-## Paper Notes
-
-Use these terms consistently:
-
-- `velocity residual` for implementation on Klein9B/FLUX.2
-- `score residual` for probabilistic interpretation
-- `style CFG` only as an analogy
-- `style residual distillation` as the paper-level method name
-
-Avoid claiming the residual is pure style until measured. The correct claim is:
-
-```text
-The residual can be made increasingly style-specific by conditioning design
-and residual purification, and we quantify the remaining semantic/layout
-components.
-```
-
-## Open Questions
-
-1. Which style condition gives the best teacher residual?
-   - hard K/V injection
-   - Sinkhorn K/V injection
-   - LRS/GRAG compressed K/V
-   - Hyperion teacher displacement
-
-2. Is `delta_v` aligned with Hyperion gradient across timesteps or only in a
-   narrow active region?
-
-3. Is the residual mostly high-frequency texture or also low-frequency color?
-
-4. Does distilling `delta_v` work better than distilling `delta_z_hyperion`?
-
-5. Does a student need prompt embeddings, or are `z_t`, `t`, and style features
-   sufficient?
-
+- Never edit `/home/ubuntu/chengyanli/items/save/attention_20260426_090948`.
+- Do not call offline student training a requirement of the main method.
+- Do not compare runs with different seeds, prompts, timesteps, or evaluator
+  caches without labeling the comparison.
+- Do not commit generated checkpoints or image dumps.
