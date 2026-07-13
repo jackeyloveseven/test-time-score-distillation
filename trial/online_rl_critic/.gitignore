@@ -3,7 +3,16 @@ results/
 *.log
 manifest.csv
 manifest_grpo.csv
+manifest_same_state.csv
+manifest_greedy.csv
+manifest_oracle.csv
 metrics.csv
 metrics_summary.json
 metrics_grpo.csv
 metrics_grpo_summary.json
+metrics_same_state.csv
+metrics_same_state_summary.json
+metrics_greedy.csv
+metrics_greedy_summary.json
+metrics_oracle.csv
+metrics_oracle_summary.json

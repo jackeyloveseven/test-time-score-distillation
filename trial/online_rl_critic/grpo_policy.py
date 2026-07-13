@@ -66,6 +66,33 @@ class OnlineGRPOPolicy:
             entropy=float(distribution.entropy().item()),
         )
 
+    def select_greedy_action(self, state: Tensor) -> GRPOAction:
+        """Select the highest-probability action after a same-state policy update."""
+
+        logits = self._logits(state.reshape(1, -1))
+        distribution = torch.distributions.Categorical(logits=logits)
+        index = int(torch.argmax(logits.reshape(-1)).item())
+        action = torch.tensor(index, device=self.device)
+        return GRPOAction(
+            action_index=index,
+            action_scale=self.action_scales[index],
+            log_prob=float(distribution.log_prob(action).item()),
+            entropy=float(distribution.entropy().item()),
+        )
+
+    def action_for_index(self, state: Tensor, index: int) -> GRPOAction:
+        """Build an action record for an externally selected candidate index."""
+
+        logits = self._logits(state.reshape(1, -1))
+        distribution = torch.distributions.Categorical(logits=logits)
+        action = torch.tensor(int(index), device=self.device)
+        return GRPOAction(
+            action_index=int(index),
+            action_scale=self.action_scales[int(index)],
+            log_prob=float(distribution.log_prob(action).item()),
+            entropy=float(distribution.entropy().item()),
+        )
+
     def add_transition(
         self,
         *,
@@ -120,5 +147,48 @@ class OnlineGRPOPolicy:
             "grpo_group_mean": float(group_mean.detach().item()),
             "grpo_group_std": float(group_std.detach().item()),
             "grpo_advantage": float(advantages[-1].detach().item()),
+            "grpo_update_count": float(self.update_count),
+        }
+
+    def update_from_same_state_rewards(
+        self,
+        *,
+        state: Tensor,
+        rewards: list[float] | Tensor,
+    ) -> dict[str, object]:
+        """Apply one relative-advantage update from candidate actions at one state."""
+
+        rewards_t = torch.as_tensor(rewards, device=self.device, dtype=torch.float32).reshape(-1)
+        if rewards_t.numel() != len(self.action_scales):
+            raise ValueError(
+                f"same-state reward group must have {len(self.action_scales)} entries, got {rewards_t.numel()}"
+            )
+        states = state.detach().float().to(self.device).reshape(1, -1).expand(rewards_t.numel(), -1)
+        actions = torch.arange(rewards_t.numel(), device=self.device)
+        group_mean = rewards_t.mean()
+        group_std = rewards_t.std(unbiased=False)
+        advantages = (rewards_t - group_mean) / (group_std + 1e-6)
+
+        old_distribution = torch.distributions.Categorical(logits=self._logits(states).detach())
+        old_log_probs = old_distribution.log_prob(actions).detach()
+        distribution = torch.distributions.Categorical(logits=self._logits(states))
+        new_log_probs = distribution.log_prob(actions)
+        ratios = torch.exp(new_log_probs - old_log_probs)
+        unclipped = ratios * advantages.detach()
+        clipped = torch.clamp(ratios, 1.0 - self.clip_eps, 1.0 + self.clip_eps) * advantages.detach()
+        policy_loss = -torch.minimum(unclipped, clipped).mean()
+        entropy = distribution.entropy().mean()
+        total_loss = policy_loss - self.entropy_weight * entropy
+        self.optimizer.zero_grad(set_to_none=True)
+        total_loss.backward()
+        self.optimizer.step()
+        self.update_count += 1
+        return {
+            "grpo_policy_loss": float(policy_loss.detach().item()),
+            "grpo_entropy": float(entropy.detach().item()),
+            "grpo_group_mean": float(group_mean.detach().item()),
+            "grpo_group_std": float(group_std.detach().item()),
+            "grpo_advantages": [float(value) for value in advantages.detach().cpu().tolist()],
+            "grpo_rewards": [float(value) for value in rewards_t.detach().cpu().tolist()],
             "grpo_update_count": float(self.update_count),
         }

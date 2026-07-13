@@ -24,6 +24,16 @@ class OnlineGRPOPolicyTest(unittest.TestCase):
         self.assertGreater(logs[-1]["grpo_group_std"], 0.0)
         self.assertTrue(torch.isfinite(torch.tensor(logs[-1]["grpo_policy_loss"])))
 
+    def test_same_state_reward_group_update(self):
+        policy = OnlineGRPOPolicy(device=torch.device("cpu"))
+        update = policy.update_from_same_state_rewards(
+            state=torch.zeros(10),
+            rewards=[-0.1, 0.2, 0.05],
+        )
+        self.assertEqual(policy.update_count, 1)
+        self.assertEqual(len(update["grpo_advantages"]), 3)
+        self.assertGreater(float(update["grpo_group_std"]), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
