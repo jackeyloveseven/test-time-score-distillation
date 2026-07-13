@@ -22,3 +22,6 @@ metrics_image_reward_summary.json
 manifest_audit_formal.csv
 metrics_audit_formal.csv
 metrics_audit_formal_summary.json
+manifest_formal_image_reward.csv
+metrics_formal_image_reward.csv
+metrics_formal_image_reward_summary.json

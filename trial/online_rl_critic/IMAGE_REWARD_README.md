@@ -53,4 +53,12 @@ This is still an expensive diagnostic. It is not part of the main method until
 multi-seed image-level results justify the extra VAE/CSD forwards.
 
 See `IMAGE_REWARD_RESULTS.md` for the baseline, oracle, fixed-GRPO comparison,
-and the exact evaluator metrics.
+and the exact evaluator metrics. See `PROTOCOL_AUDIT.md` for the corrected
+formal `score_carrier` comparison; the short CA-only smoke must not be compared
+with the paper's approximately `0.68` CSD baseline.
+
+For the formal path, add the original score-carrier arguments from
+`PROTOCOL_AUDIT.md` and use `--style-mode score_carrier`. The optional
+`--image-reward-start-fraction 0.5` keeps the original update unchanged during
+the first half of the noisy trajectory and enables image-reward action
+selection only in the later stages.

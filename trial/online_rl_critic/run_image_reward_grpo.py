@@ -243,6 +243,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-reward-weight", type=float, default=1.0)
     parser.add_argument("--native-shaping-weight", type=float, default=0.1)
     parser.add_argument("--image-reward-scale", type=float, default=10.0)
+    parser.add_argument(
+        "--image-reward-start-fraction",
+        type=float,
+        default=0.0,
+        help="Only enable image-reward action selection after this outer-step fraction.",
+    )
     return parser.parse_args()
 
 
@@ -622,8 +628,10 @@ def evaluate_same_state_ca_only_group(
 ) -> tuple[list[float], list[float], list[float], list[float]]:
     """Evaluate all scalar actions from one identical pre-action latent state."""
 
-    if args.style_mode != "ca_only":
-        raise RuntimeError("same-state GRPO trial currently supports only --style-mode ca_only")
+    if args.style_mode not in {"ca_only", "score_match", "score_carrier"}:
+        raise RuntimeError(
+            "same-state GRPO trial supports only ca_only, score_match, and score_carrier"
+        )
     if image_reward_model is not None and (reward_vae is None or latent_h is None or latent_w is None):
         raise RuntimeError("image reward requires reward_vae and latent spatial dimensions")
     candidate_losses: list[float] = []
@@ -653,19 +661,51 @@ def evaluate_same_state_ca_only_group(
         )
         sigma_broadcast = sigma_info.sigma.to(device=candidate_latents.device, dtype=candidate_latents.dtype)
         x0_pred = candidate_latents - sigma_broadcast * triplet.without_velocity.detach()
-        objective = pseudo_guidance_from_velocities(
-            "ca_only",
-            x0_pred=x0_pred,
-            v_with_detached=triplet.with_velocity,
-            v_without_detached=triplet.without_velocity,
-            sigma=sigma_info.sigma,
-            cfg_scale=args.cfg_scale,
-            lambda_ca=args.lambda_ca,
-            lambda_dm=args.lambda_dm,
-            pseudo_step_size=args.pseudo_step_size,
-            sigma_eps=args.sigma_eps,
-            normalize_grad_mode=args.pseudo_grad_normalization,
-        )
+        if args.style_mode == "ca_only":
+            objective = pseudo_guidance_from_velocities(
+                "ca_only",
+                x0_pred=x0_pred,
+                v_with_detached=triplet.with_velocity,
+                v_without_detached=triplet.without_velocity,
+                sigma=sigma_info.sigma,
+                cfg_scale=args.cfg_scale,
+                lambda_ca=args.lambda_ca,
+                lambda_dm=args.lambda_dm,
+                pseudo_step_size=args.pseudo_step_size,
+                sigma_eps=args.sigma_eps,
+                normalize_grad_mode=args.pseudo_grad_normalization,
+            )
+            candidate_style_loss = objective.loss
+        else:
+            score_objective = score_match_loss_from_velocities(
+                triplet.pre_velocity,
+                triplet.with_velocity,
+                sigma_info.sigma,
+                normalization=args.score_normalization,
+                loss_kind=args.score_loss,
+                sigma_eps=args.sigma_eps,
+                coeff_eps=args.coeff_eps,
+            )
+            if args.style_mode == "score_match":
+                candidate_style_loss = score_objective.loss
+            else:
+                goal_score = -score_objective.delta_score.detach()
+                carrier_score, _ = content_affinity_transport(
+                    goal_score,
+                    content_anchor,
+                    temperature=args.carrier_temperature,
+                    strength=args.carrier_strength,
+                    highpass_gain=args.carrier_highpass_gain,
+                )
+                carrier_pseudo_grad = float(args.lambda_ca) * (float(args.cfg_scale) - 1.0) * carrier_score
+                carrier_loss, _, _ = build_pseudo_target_loss(
+                    x0_pred,
+                    carrier_pseudo_grad,
+                    step_size=args.pseudo_step_size,
+                    normalize_grad_mode=args.pseudo_grad_normalization,
+                    grad_eps=args.coeff_eps,
+                )
+                candidate_style_loss = score_objective.loss + float(args.carrier_loss_weight) * carrier_loss
         dist_loss, content_loss = compute_regularizer_losses(
             latents=candidate_latents,
             style_latent_t=style_latent_t,
@@ -675,7 +715,7 @@ def evaluate_same_state_ca_only_group(
             loss_fn=torch.nn.L1Loss(),
         )
         candidate_total = (
-            float(effective_style_weight) * objective.loss
+            float(effective_style_weight) * candidate_style_loss
             + float(dist_weight) * dist_loss
             + float(content_weight) * content_loss
         )
@@ -1372,7 +1412,11 @@ def inner_optimize(
         optimizer.step()
 
         rl_extra: dict[str, float] = {}
-        if grpo_policy is not None and grpo_state is not None:
+        image_reward_active = True
+        if image_reward_model is not None:
+            outer_fraction = float(outer_step_idx) / max(float(args.num_steps), 1.0)
+            image_reward_active = outer_fraction >= float(args.image_reward_start_fraction)
+        if grpo_policy is not None and grpo_state is not None and image_reward_active:
             raw_update = latents.detach() - latents_before
             candidate_losses, candidate_rewards, native_rewards, image_rewards = evaluate_same_state_ca_only_group(
                 teacher_dit=teacher_dit,
@@ -1703,8 +1747,10 @@ def main() -> int:
     image_reward_model = None
     reward_vae = None
     if args.image_reward:
-        if args.style_mode != "ca_only":
-            raise RuntimeError("--image-reward trial currently requires --style-mode ca_only")
+        if args.style_mode not in {"ca_only", "score_match", "score_carrier"}:
+            raise RuntimeError(
+                "--image-reward trial currently supports ca_only, score_match, and score_carrier"
+            )
         main_pipe.load_models_to_device(["vae"])
         reward_vae = main_pipe.vae
         image_reward_model = OnlineCSDStyleReward(

@@ -69,7 +69,32 @@ the original method.
 Before testing image reward, the next implementation must preserve the formal
 `score_carrier` objective and schedule. Any reward comparison must use the same
 25/5 protocol and report the original formal baseline in the same manifest.
-The current image-reward wrapper only allows reward candidates for `ca_only`, so
-it is not yet ready for that experiment. No claim about image-reward gains is
-made until this restriction is removed or the reward is integrated into the
-formal score-carrier candidate objective.
+The initial wrapper only allowed reward candidates for `ca_only`. It has now
+been extended to evaluate the formal `score_carrier` candidate objective. No
+claim about image-reward gains is made because the formal comparison is still
+negative on CSD.
+
+## Formal Image-Reward Results
+
+The candidate reward was then integrated with the exact formal
+`score_carrier` objective. All rows use the same style/prompt/seed, 25 outer
+steps, dynamic 5-to-2 inner iterations, start time 1000, gradient calibration,
+and carrier regularization. The baseline is the strict audit above.
+
+| method | CSD style | CLIP-T | DINO style | VGG Gram distance | layout leakage |
+|---|---:|---:|---:|---:|---:|
+| formal score-carrier baseline | **0.689619** | 0.337495 | 0.074046 | 2.390120 | 0.280550 |
+| image reward GRPO at every stage | 0.644513 | 0.332246 | 0.066161 | 2.330238 | 0.308398 |
+| image reward same-state oracle | 0.681706 | 0.341500 | 0.067942 | **2.270237** | 0.298368 |
+| image reward GRPO after outer fraction 0.5 | 0.683222 | **0.354927** | **0.074363** | 2.280977 | 0.304994 |
+
+The late-only schedule avoids most of the early-noise damage and improves
+content/style auxiliary metrics, but it still does not beat the original CSD
+baseline. Even the same-state image-reward oracle remains below baseline CSD,
+so the current low-resolution CSD reward is not aligned enough with the final
+image trajectory to justify a paper claim.
+
+The implementation is retained as a negative diagnostic: it proves that the
+formal score-carrier path can be evaluated with online image reward without
+changing the teacher. The main method remains the original score-carrier
+objective; no image-reward term is promoted into the paper method.
