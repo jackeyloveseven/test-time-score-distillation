@@ -3,9 +3,10 @@
 \usepackage[letterpaper,margin=0.78in]{geometry}
 \usepackage{times}
 \usepackage{amsmath,amssymb,booktabs,graphicx,url}
-\usepackage[hidelinks]{hyperref}
-\title{Supplementary Material for\\Goal, Carrier, and Flow}
+\title{Supplementary Material for\\From Visual Goal to Denoising Flow:\\
+Carrier-Anchored Image CFG for Training-Free Style Transfer}
 \author{Anonymous Authors}
+\date{}
 \begin{document}
 \maketitle
 
@@ -15,6 +16,34 @@ This supplement gives the complete formal protocol, additional field
 conditioning results, and the online image-reward diagnostic. The image-reward
 experiment is included as a negative alignment study. It is not an additional
 claim of the main method.
+
+\section{Implementation-Exact Objective}
+
+Both native branches receive the same post-scheduler latent $z_t$, timestep,
+prompt metadata, and image-token IDs. Let $v_0(z_t)$ be the differentiable
+without-reference velocity and $v_s(z_t)$ the detached with-reference velocity.
+The score-match implementation first removes the shared state term and computes
+\begin{equation}
+ \Delta s_{0\rightarrow s}=-\frac{1-\sigma}{\sigma}
+ \left(v_0(z_t)-\operatorname{sg}[v_s(z_t)]\right).
+\end{equation}
+The coefficient-normalized field enters the direct loss. For carrier anchoring,
+the goal direction has the opposite sign,
+$g_t=-\operatorname{sg}[\Delta s_{0\rightarrow s}]$, and is transported by
+the detached content affinity. The base prediction
+$\hat x_0^0=z_t-\sigma v_0(z_t)$ remains differentiable, while
+\begin{equation}
+ x_0^\star=\operatorname{sg}\left[\hat x_0^0+
+ \eta\operatorname{RMSNorm}(\mathcal T_A(g_t))\right]
+\end{equation}
+is a detached pseudo-target. Constructing and detaching two full scores before
+their subtraction would leave an unintended identity gradient from the shared
+$-z_t/\sigma$ term.
+
+The implementation includes unit checks for scheduler sigma lookup,
+velocity--score round trips, zero correction at the degenerate endpoint,
+identity transport, row-stochastic affinity, reference-free carrier inputs, and
+absence of gradients through teacher targets.
 
 \section{Formal Reproducibility Protocol}
 
@@ -65,6 +94,35 @@ The exact audit command is:
 The unified evaluator uses one manifest for every row and records the CSD,
 CLIP-T, DINO, VGG Gram, and layout-leakage checkpoint hashes. The strict audit
 obtains CSD 0.689619, matching the historical formal result around 0.688.
+
+\section{Per-Pair Matched Breakdown}
+
+The main paper reports means over three reference--prompt pairs. Every row
+below uses seed 64 and the same sampler and loss configuration within a method.
+
+\begin{table}[h]
+\centering
+\caption{Per-pair comparison used by the main-paper mean.}
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+Pair & Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+\midrule
+00/kp1 & K/V & .4695 & .3035 & .0589 & 4.4740 & .3908\\
+       & GoalCarrier & .6726 & .3082 & .0755 & 4.6541 & .4048\\
+13/kp3 & K/V & .3129 & .3396 & .0438 & 4.9072 & .3290\\
+       & GoalCarrier & .3351 & .3344 & .0410 & 5.1414 & .3382\\
+27/kp0 & K/V & .4257 & .3428 & .0400 & 2.7084 & .2858\\
+       & GoalCarrier & .6908 & .3463 & .0690 & 2.4718 & .3007\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result is heterogeneous. Styles 00 and 27 provide most of the CSD gain;
+style 13 is nearly neutral and slightly worse on the auxiliary metrics. We
+therefore treat this experiment as controlled mechanism evidence, not a broad
+benchmark claim. A complete matched multi-seed matrix is the highest-priority
+remaining experiment.
 
 \section{Field Conditioning Ablation}
 
@@ -177,17 +235,8 @@ aligned value function for greedy online action selection. We do not add this
 reward to the main method. The main paper claim remains online native
 score-carrier refinement, with image-reward analysis reserved for this
 supplement.
-
-\section{Artifact Locations}
-
-All artifacts are under:
-
-\begin{verbatim}
-trial/online_rl_critic/
-\end{verbatim}
-
-The protocol audit, generated manifests, metrics, logs, and trial runner are
-documented there. Generated metrics are ignored by git, while source code and
-reproducibility documents are committed.
+The protocol audit, manifests, metrics, logs, and isolated runner are under
+\texttt{trial/online\_rl\_critic/}. Generated metrics are ignored by git, while
+source code and reproducibility documents are committed.
 
 \end{document}

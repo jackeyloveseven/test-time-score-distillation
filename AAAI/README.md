@@ -1,43 +1,47 @@
 # AAAI Paper Draft
 
-This directory contains the AAAI-style paper draft for the second paper:
+This directory contains the submission draft for the second paper:
 
-**Goal, Carrier, and Flow: Online Image-Conditioned Score Distillation for
-Style Transfer**
+**From Visual Goal to Denoising Flow: Carrier-Anchored Image CFG for
+Training-Free Style Transfer**
 
 ## Files
 
-- `main.tex`: main paper draft, written in a self-contained two-column format.
-- `supplement.tex`: supplementary material, including the formal protocol audit
-  and the online image-reward diagnostic.
-- `references.bib`: working bibliography for replacing the inline references
-  with the official AAAI bibliography workflow.
-- `BUILD.md`: local compilation and evidence provenance notes.
+- `main.tex`: seven-page technical paper, two-page bibliography, and checklist.
+- `supplement.tex`: protocol, per-pair values, field conditioning, and the
+  negative image-reward diagnostic.
+- `references.bib`: checked bibliography used by BibTeX.
+- `reproducibility.tex`: AAAI reproducibility answers included after references.
+- `BUILD.md`: exact compile and validation workflow.
+- `SUBMISSION_READINESS.md`: claim boundaries and remaining top-tier gates.
 
-## Scope
+## Current Position
 
-The main claim is an online, training-free, image-conditioned score refinement
-method. The reference image supplies a native style goal; the current content
-latent supplies a reference-independent spatial carrier; the flow/scheduler
-executes the resulting update. Offline student distillation is optional and is
-not required by the main method.
+The headline method is online carrier-anchored image CFG. It requires no
+adapter training: a same-state native with/without-reference score contrast is
+the visual goal, a detached content-only affinity is the spatial carrier, and a
+scheduler-consistent clean-state target executes the update.
 
-The image-reward experiments are supplementary diagnostics only. They are not
-presented as a method improvement. In particular, the local CSD oracle is not a
-true final-image best-of-N oracle: it scores noisy intermediate VAE decodes and
-selects a myopic action.
+The main paper deliberately does not claim a completed CA+DMD improvement. A
+valid CA+DMD extension requires a persistent dynamic fake-score backend. The
+optional image-code student is amortization for repeated deployment, not a
+prerequisite for the online method.
 
-## Evidence Boundary
+Headline evidence:
 
-The strict formal score-carrier audit reproduces CSD `0.689619` on style 27,
-prompt kp0, seed 64. The historical formal record is approximately `0.688` and
-the stored score-match record is `0.710720`. The supplementary image-reward
-comparison is intentionally reported as a negative alignment result.
+- strict representative audit: CSD `0.689619`;
+- three-pair matched mean: K/V `0.402729` vs. GoalCarrier `0.566176` CSD;
+- carrier intervention on the representative pair: leakage `0.3018 -> 0.2780`;
+- local noisy-state CSD reward is a negative supplementary diagnostic, not
+  final-image best-of-N.
 
-## Compilation
+## Page Contract
 
-The files are written to compile with a normal LaTeX installation without the
-proprietary AAAI style file. For an actual submission, replace the local
-article preamble with the official AAAI template while preserving the body.
+The current main PDF contains seven pages of technical content, two pages of
+references, and one page of the required AAAI reproducibility checklist. The
+checklist is after the references and does not count toward the technical page
+limit. The supplement is compiled separately.
 
-See `BUILD.md` for the recommended command and the exact experiment sources.
+The working source uses a portable article preamble. It must be switched to the
+official AAAI-26 author-kit style before submission. See `BUILD.md` and
+`SUBMISSION_READINESS.md` before changing claims or the page budget.

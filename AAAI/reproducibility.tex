@@ -1,0 +1,33 @@
+\section*{AAAI Reproducibility Checklist}
+\small
+
+\textbf{General.} (Yes) The paper states the main claims, assumptions, and
+method boundary; provides a conceptual outline and executable pseudocode; and
+distinguishes the online method from optional student and DMD extensions.
+
+\textbf{Theory.} (Partial) The score/velocity conversion and conditional
+log-density-ratio interpretation are derived in the main paper. We make no new
+convergence theorem or general optimality claim.
+
+\textbf{Data.} (Partial) Reference paths, prompts, style/prompt identifiers,
+and seeds are recorded in machine-readable manifests. The current controlled
+reference set is described; licensing and public redistribution status must be
+confirmed before release.
+
+\textbf{Code and computation.} (Yes) Source code for the proposed objective,
+baselines, evaluation, negative diagnostics, and manifest construction is
+included in the code appendix. Commands specify model roots, 512-pixel
+resolution, 25 outer steps, dynamic 5-to-2 inner iterations, start time 1000,
+AdamW, zero weight decay, loss weights, and random seeds. Hardware and software
+environment details are recorded in the repository documentation.
+
+\textbf{Results.} (Yes) The number of runs underlying every table is stated.
+Matched comparisons share reference, prompt, seed, initial state, and evaluator.
+Mean and standard deviation are reported where available; single-run and
+three-pair results are explicitly labeled. Checkpoint hashes and preprocessing
+for CSD, CLIP, DINO, and VGG evaluators are stored with the result summaries.
+
+\textbf{Limitations.} (Yes) The paper identifies the small matched benchmark,
+missing broad human evaluation, layout/style trade-off, and the distinction
+between noisy-state reward and final-trajectory best-of-$N$.
+\normalsize

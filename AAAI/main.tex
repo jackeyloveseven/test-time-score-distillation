@@ -1,715 +1,680 @@
-% AAAI-style working draft. Replace the preamble with the official AAAI style
-% file before submission.
+% AAAI-26 working draft. Replace only this preamble with the official
+% aaai2026 style package when the author kit is available locally.
 \documentclass[10pt,letterpaper]{article}
 \usepackage[letterpaper,margin=0.72in]{geometry}
 \usepackage{times}
 \usepackage{amsmath,amssymb,booktabs,multirow}
 \usepackage{graphicx}
 \usepackage{xcolor}
-\usepackage{url}
-\usepackage[hidelinks]{hyperref}
 \usepackage{microtype}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
 \setlength{\columnsep}{0.25in}
 \setlength{\parindent}{1em}
 \setlength{\parskip}{0pt}
+\graphicspath{{results/}{../results/}}
+
 \newcommand{\method}{\textsc{GoalCarrier}}
 \newcommand{\score}{\mathsf{s}}
 \newcommand{\vel}{\mathsf{v}}
-\newcommand{\style}{\mathsf{sty}}
-\newcommand{\content}{\mathsf{con}}
 \newcommand{\R}{\mathbb{R}}
+\newcommand{\sg}{\operatorname{sg}}
 
-\title{Goal, Carrier, and Flow: Online Image-Conditioned Score Distillation for Style Transfer}
+\title{From Visual Goal to Denoising Flow:\\
+Carrier-Anchored Image CFG for Training-Free Style Transfer}
 \author{Anonymous Authors}
+\date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Reference-based style transfer asks a diffusion model to use an image as a
-visual instruction while preserving the layout and semantics specified by a
-prompt. We argue that editing is not a layer-by-layer revealing of the
-reference. The style goal can become available early; the current content
-state provides a spatial carrier that determines where this goal is rendered;
-and late denoising translates the carried goal into an executable flow update.
-We turn this view into an online, training-free score refinement method. A
-native reference-conditioned score is contrasted with a same-state
-without-reference score to obtain a style goal. A reference-independent content
-affinity transports that goal across the current latent tokens, after which a
-rectified-flow update executes the transported field. The proposed method does
-not require an adapter or offline student training at inference time. An
-optional field student is described as an amortization variant for repeated
-deployment. On the formal Klein9B protocol, the strict score-carrier audit
-reaches CSD style similarity 0.6896 on the representative pair, while the
-carrier term improves over unconstrained score matching in the matched
-comparison. We also report a negative supplementary diagnostic: a frozen CSD
-reward on noisy intermediate VAE decodes is not equivalent to final-image
-best-of-$N$ selection and does not improve the formal baseline. This boundary
-clarifies both the method and the role of image-level feedback.
+Reference-based style transfer must answer two different questions: what
+appearance does the reference request, and where should that appearance act in
+the generated scene? Existing attention replacement entangles the two by
+importing reference features and their spatial organization together, while
+adapter-based methods introduce a separate training problem. We instead expose
+the model's own reference-dependent score as a visual goal and render it through
+a carrier derived only from the current content state. Specifically, two native
+model evaluations at the same latent and timestep, with and without the
+reference, yield an image-CFG score residual. A detached content-token affinity
+then transports this residual before a scheduler-consistent clean-state loss
+updates the latent. The resulting method is online and training-free: it
+optimizes only the current sample and learns no adapter. In a controlled
+Klein9B study, the carrier-anchored residual reaches 0.6896 CSD on a strictly
+reproduced representative case. Across three matched reference--prompt pairs,
+it improves mean CSD from 0.4027 for K/V replacement to 0.5662 while maintaining
+comparable text alignment, with an explicit content-layout trade-off. These
+results support a simple view of image-conditioned generation: the native score
+specifies the goal, the current image state supplies the spatial carrier, and
+the flow parameterization executes their combination.
 \end{abstract}
 
 \section{Introduction}
 
-Reference-based image editing is often implemented through feature injection,
-attention replacement, or iterative latent optimization. These approaches make
-the reference influential, but they leave a central question under-specified:
-how does an image become an instruction for the current generation rather than
-a second scene to copy?
+An image can be more than a feature source: it can specify a visual operation
+that changes an ongoing generation. Style transfer is a sharp test of this
+ability. A reference image communicates palette, material, texture, and
+mark-making, but its objects and composition should not be copied. The model
+must therefore extract \emph{what} to change while preserving \emph{where} the
+generated content lives.
 
-Our starting observation is that editing is not progressively drawing the
-reference through network depth. Three computational roles are entangled:
+Most diffusion style-transfer mechanisms blur these roles. Replacing
+self-attention keys and values can transfer strong appearance, but it also
+imports the reference's token geometry \cite{chung2024styleinjection}. Image
+adapters learn a useful visual condition, but require a separately trained
+interface \cite{ye2023ipadapter}. Optimization-based score losses expose a
+generative prior directly \cite{poole2023dreamfusion,hertz2023dds}, yet a raw
+score direction alone does not say which current-image tokens should carry a
+reference-dependent change. This suggests that the central difficulty is not
+merely obtaining a style signal; it is assigning that signal a content-aligned
+spatial support.
 
-\begin{quote}
-\textbf{Native score:} what visual change is desired.\\
-\textbf{Content carrier:} where the change should be rendered.\\
-\textbf{Flow executor:} how the change becomes a scheduler velocity.
-\end{quote}
+We formulate the problem as \textbf{goal--carrier--flow}. The \emph{goal} is
+the native score change caused by showing the model the reference at a fixed
+state. The \emph{carrier} is an affinity computed exclusively from the current
+content latent, which determines where that change is transported. The
+\emph{flow executor} converts the transported score direction into the clean
+state optimized by the rectified-flow sampler. This decomposition makes the
+role of cross attention (CA) precise: CA is not removed, nor is it a learned
+adapter. The native model uses its image condition to form the goal; the
+explicit content affinity supplies the spatial carrier used by the online
+loss.
 
-This decomposition explains a common failure mode. A method can recover the
-palette, material, or brushwork of a reference but place it on the wrong
-object. The style goal is present, but the spatial carrier is wrong. Conversely,
-a strong content carrier can preserve layout while failing to express the
-reference style. Re-learning both roles as one unconstrained residual makes
-these errors difficult to diagnose.
+Figure~\ref{fig:overview} summarizes the method and a representative outcome.
+Unlike K/V replacement, the reference never enters the carrier. Unlike an
+offline student, the procedure is completed inside one sampling trajectory.
+The same-state constraint also gives a clean interpretation: the score
+difference is a conditional log-density-ratio direction rather than a
+difference between unrelated noisy states.
 
-We study this problem through the \emph{Think with Image} lens. The reference
-is an instruction-bearing image, not a class label or a retrieval key. The
-method first extracts a native style goal from the diffusion model itself, then
-renders that goal using the current content state. This makes the image
-conditioning explicit and testable.
-
-Our contributions are:
+Our contributions are threefold:
 \begin{enumerate}
-\item We formulate image-conditioned editing as a goal--carrier--executor
-decomposition and give same-state probes for separating the three roles.
-\item We introduce a decoupled image-CFG teacher: the same latent state is
-evaluated with and without the reference, so the reference-dependent native
-score difference is an explicit style goal.
-\item We propose online carrier-anchored score refinement. A content affinity
-transports the native goal without directly exposing the reference to the
-spatial carrier, and the current latent is updated immediately without training
-a global adapter.
-\item We provide a reproducibility contract and an honest supplementary
-analysis of online image reward, showing why local noisy-state CSD reward should
-not be confused with true final-image best-of-$N$ selection.
+\item We derive a same-state \emph{image-CFG residual} from a native
+reference-conditioned flow model, explicitly separating a visual goal from
+shared state and prompt terms.
+\item We introduce \method, a training-free online objective that transports
+the goal through a detached, reference-independent content carrier and applies
+it through a scheduler-consistent clean-state target.
+\item We provide matched controls for K/V replacement, score-only guidance,
+carrier transport, start time, and latent regularization, together with an
+auditable protocol that records model, state, scheduler, optimizer, and
+evaluator hashes.
 \end{enumerate}
+
+\begin{figure*}[t]
+\centering
+\begin{minipage}[c]{0.55\textwidth}
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners=2pt, minimum height=8mm, align=center,
+              inner xsep=5pt, fill=white},
+  arr/.style={-{Latex[length=2mm]}, thick},
+  note/.style={font=\scriptsize, align=center}
+]
+\node[box, fill=blue!7] (state) {$z_t,t,p$\\shared state};
+\node[box, fill=orange!10, above right=5mm and 11mm of state] (with)
+  {native model\\with reference $x_s$};
+\node[box, fill=gray!10, below right=5mm and 11mm of state] (without)
+  {native model\\without reference};
+\node[box, fill=red!7, right=15mm of with, yshift=-7mm] (goal)
+  {visual goal\\$g_t=\score_s-\score_0$};
+\node[box, fill=green!9, below=13mm of goal] (carrier)
+  {content carrier\\$A_t=\mathrm{softmax}(\bar z_t\bar z_t^\top/\tau)$};
+\node[box, fill=purple!7, right=13mm of goal, yshift=-7mm] (target)
+  {transport + flow\\$x_0^\star=\sg[x_0+\eta\mathcal T_A(g_t)]$};
+\draw[arr] (state) -- (with);
+\draw[arr] (state) -- (without);
+\draw[arr] (with) -- (goal);
+\draw[arr] (without) -- (goal);
+\draw[arr] (state.south) |- (carrier.west);
+\draw[arr] (goal) -- (target);
+\draw[arr] (carrier) -| (target);
+\node[note, below=1mm of carrier] {reference-free spatial support};
+\node[note, above=1mm of goal] {same latent, same timestep};
+\end{tikzpicture}
+}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.42\textwidth}
+\centering
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{ccc}
+\includegraphics[width=0.31\linewidth]{formal25_score_carrier_start1000_score_carrier_style27_kp0_seed64_reference.png} &
+\includegraphics[width=0.31\linewidth]{formal25_multi_kv_s27_kp0_seed64_kv_match_style27_kp0_seed64.png} &
+\includegraphics[width=0.31\linewidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64.png}\\[-1mm]
+{\scriptsize Reference} & {\scriptsize K/V replacement} & {\scriptsize \method}\
+\end{tabular}
+\end{minipage}
+\caption{\textbf{Goal, carrier, and flow.} Left: the reference changes only
+the native goal branch; the spatial carrier is computed from the current
+content state. Both teacher evaluations share the exact latent and timestep.
+Right: for ``a panda eating bamboo,'' K/V replacement transfers appearance but
+also inherits reference-like composition; \method{} retains the requested
+content while expressing the reference palette and mark-making.}
+\label{fig:overview}
+\end{figure*}
 
 \section{Related Work}
 
-Classifier-free guidance combines conditional and unconditional diffusion
-predictions to control generation \cite{ho2022cfg}. Score distillation
-transfers a pretrained diffusion prior into an optimization or another model
-\cite{poole2022dreamfusion}. Distribution matching distillation
-and its follow-ups use a learned or frozen score contrast to accelerate
-sampling \cite{yin2023dmd,sauer2024dmd2}. In image editing, prompt-to-prompt
-control, instruction-based editing, and image adapters provide different ways
-to preserve content while injecting a visual instruction
-\cite{hertz2023prompt,brooks2023instructpix2pix,ye2023ipadapter}.
+\paragraph{Style transfer and image conditioning.}
+Classical neural style transfer matches feature statistics or adaptive moments
+\cite{gatys2016style,huang2017adain}. Diffusion methods broaden the generative
+prior through inversion, attention control, or exemplar conditioning
+\cite{hertz2023prompt,tumanyan2023plugplay,yang2023paint}. Learned approaches
+include low-rank style tuning and decoupled image-prompt adapters
+\cite{sohn2023styledrop,ye2023ipadapter}. Training-free methods share or replace
+attention features \cite{chung2024styleinjection,hertz2024stylealigned} or
+inject image features into selected blocks \cite{wang2024instantstyle}. These
+methods motivate our concern: appearance transfer is strongest when reference
+features are spatially influential, precisely where reference-layout leakage
+can arise. We use the model-native image condition to define appearance and a
+separate content-state operator to define placement.
 
-Our distinction is not another reference feature injector. The native model
-already exposes a reference-conditioned score. We use its same-state contrast
-as the style goal and reserve the current content state for spatial transport.
-The resulting method is online and does not require training a new adapter for
-each reference family.
+\paragraph{Guidance and score differences.}
+Classifier guidance and classifier-free guidance alter a diffusion score by a
+conditional contrast \cite{dhariwal2021diffusion,ho2022cfg}. Score Distillation
+Sampling turns a frozen diffusion prior into an optimization gradient
+\cite{poole2023dreamfusion}; Delta Denoising Score removes a matched source
+direction for stable text-driven editing \cite{hertz2023dds}, and contrastive
+variants add structure-preserving features \cite{nam2024cds}. Our residual is
+related algebraically but differs in conditioning and use: both branches are
+native image-edit evaluations at the current generated state, and their
+reference-dependent difference is explicitly transported by a content-only
+carrier before execution.
 
-\section{Problem Formulation}
+\paragraph{Distribution and flow matching.}
+Diffusion and score models learn noise-conditional vector fields
+\cite{ho2020ddpm,song2021sde}. Flow matching and rectified flow provide a direct
+velocity parameterization \cite{lipman2023flow,liu2023rectified}, used by modern
+multimodal diffusion transformers \cite{esser2024sd3}. Distribution Matching
+Distillation (DMD) learns a fast generator from real and fake score differences
+\cite{yin2024dmd,yin2024dmd2}. \method{} instead performs per-sample online
+refinement and trains no generator. A dynamic fake-score term is compatible
+with our carrier, but is not required by or claimed as the main method.
 
-Let $z_t$ be a noisy latent state, $t$ a flow timestep, $p$ a content prompt,
-and $x_s$ a reference image. Let $\vel_0(z_t,t,p)$ be the native velocity
-without the reference and $\vel_s(z_t,t,p,x_s)$ the native velocity with the
-reference. Both are evaluated at exactly the same $(z_t,t,p)$.
+\section{Carrier-Anchored Image CFG}
 
-For a flow-matching scheduler with
-$z_\sigma=(1-\sigma)x_0+\sigma\epsilon$ and $\vel=\epsilon-x_0$, a same-state
-velocity difference converts to a score difference as
+\subsection{Problem and Same-State Contract}
+
+Let $z_t\in\R^{L\times C}$ be the current noisy image tokens, $t$ the sampler
+timestep, $p$ a content prompt, and $x_s$ a style reference. The frozen native
+edit model predicts velocity $\vel_s(z_t,t,p,x_s)$ when shown the reference and
+$\vel_0(z_t,t,p)$ when the reference condition is removed. The two evaluations
+must share the same $z_t$, $t$, prompt metadata, and image-token IDs. Otherwise,
+their difference contains an uncontrolled state change and cannot be
+interpreted as guidance.
+
+For the flow scheduler
 \begin{equation}
-  \Delta \score_t
-  = -\frac{1-\sigma}{\sigma}\Delta \vel_t,
-  \qquad
-  \Delta \vel_t=\vel_s-\vel_0.
-  \label{eq:conversion}
+ z_\sigma=(1-\sigma)x_0+\sigma\epsilon,\qquad
+ \vel=\epsilon-x_0,
+ \label{eq:flow}
 \end{equation}
-The conversion is part of the data contract. A score target must be converted
-back to velocity before it is applied to a rectified-flow scheduler. We clamp
-the denominator and return a zero correction at the degenerate endpoint.
-
-\section{Method}
-
-\subsection{Decoupled Image-CFG Teacher}
-
-The native teacher evaluates two branches on one saved state. The positive
-branch receives the real reference condition; the negative branch receives no
-reference condition but shares prompt and image-token metadata. We define the
-native style goal in score space as
+we have $\hat x_0=z_\sigma-\sigma\vel$ and
+$\score=-(z_\sigma+(1-\sigma)\vel)/\sigma$. Shared state terms cancel, giving
 \begin{equation}
-  g_t = \score_s(z_t,t,p,x_s)-\score_0(z_t,t,p).
-  \label{eq:goal}
+ g_t \equiv \score_s-\score_0
+ =-\frac{1-\sigma}{\sigma}(\vel_s-\vel_0).
+ \label{eq:goal}
 \end{equation}
-The reference therefore determines what should change, while the state and
-prompt remain fixed. This is stronger than replacing the keys and values of an
-attention block: the style goal is model-native and includes all reference
-pathways used by the edit model.
+The implementation resolves $\sigma$ from the scheduler table, clamps only its
+degenerate endpoint, and sets the correction to zero when the inverse
+conversion is undefined.
 
-The teacher dump records $z_t$, $t$, $\sigma$, the two branch velocities,
-$g_t$, prompt metadata, reference path, model roots, and evaluator hashes.
-These fields make the score/velocity conversion and the same-state invariant
-auditable.
-
-\subsection{Reference Image Code}
-
-For the optional student path, we use a frozen deterministic code from the
-reference image. The current implementation encodes the resized reference
-with the model VAE, flattens spatial tokens, and concatenates channel-wise mean
-and standard deviation:
+Equation~\ref{eq:goal} is an image analogue of CFG. If the two branches
+estimate conditional densities $p_s$ and $p_0$, then
 \begin{equation}
-  c_s = [\operatorname{mean}_{u}(\operatorname{VAE}(x_s)_u),
-         \operatorname{std}_{u}(\operatorname{VAE}(x_s)_u)].
-  \label{eq:imagecode}
+ g_t=\nabla_{z_t}\log p_s(z_t\mid p,x_s)
+     -\nabla_{z_t}\log p_0(z_t\mid p)
+ =\nabla_{z_t}\log\frac{p_s}{p_0}.
+ \label{eq:ratio}
 \end{equation}
-This code is reference-image based rather than a style-ID lookup. Style IDs
-are retained only as an ablation because they can memorize a finite training
-catalog.
+Thus the native model, rather than replaced K/V tensors or a learned adapter,
+defines what the reference asks the current sample to change.
 
-\subsection{Content Affinity Carrier}
+\subsection{Reference-Independent Spatial Carrier}
 
-The current content latent defines a token affinity. With normalized token
-features $q_u$ and $k_v$ from the content state, we use
+A goal is not yet a rendering rule. We compute a token affinity from the saved
+post-scheduler content state $c_t$:
 \begin{equation}
- A_t(u,v)=\operatorname{softmax}_v\left(\frac{q_u^\top k_v}{\tau}\right).
+ A_t=\operatorname{softmax}\!\left(\frac{\bar c_t\bar c_t^\top}{\tau}\right),
+ \qquad \bar c_{t,u}=\frac{c_{t,u}}{\lVert c_{t,u}\rVert_2}.
  \label{eq:affinity}
 \end{equation}
-The affinity is detached from the optimization target. Given a native goal
-$g_t$, a carrier transport can be written as
+$A_t$ is detached and never receives $x_s$. It is therefore a spatial carrier,
+not another style extractor. The transported field is
 \begin{equation}
- \mathcal{T}_{\mathrm{CA}}(g_t;z_t)
- =g_t+\lambda_{\mathrm{CA}}(A_tg_t-g_t).
+ \mathcal T_A(g_t)=g_t+\lambda_A(A_tg_t-g_t),
  \label{eq:transport}
 \end{equation}
-An optional high-pass term preserves local variation. Crucially, $A_t$ is
-reference-independent. The reference determines the goal, not the spatial
-arrangement copied by the carrier.
+with an optional high-pass residual in the general implementation. The formal
+configuration uses no high-pass gain, isolating affinity transport.
 
-\subsection{Online Carrier-Anchored Refinement}
+This design gives CA a specific role. The model's native image-conditioning
+path, which includes its cross-attention machinery, forms $g_t$. The explicit
+content affinity then decides which current-image tokens share that change.
+Reference K/V tensors are not inserted into $A_t$; consequently the carrier
+cannot directly reproduce the reference arrangement.
 
-The online method operates directly on the current sample. It computes the
-native goal, transports it through the content carrier, and constructs a
-detached pseudo-target:
+\subsection{Online Objective}
+
+We optimize the current latent, not model parameters. The base branch predicts
+$\hat x_0^0=z_t-\sigma\vel_0(z_t)$ with gradients retained through
+$\vel_0$. The styled branch is detached. The direct goal-matching term is
 \begin{equation}
- z_t^{\star}=\operatorname{stopgrad}\left(z_t+eta\,
- \operatorname{Normalize}(\mathcal{T}_{\mathrm{CA}}(g_t;z_t))\right).
- \label{eq:pseudotarget}
+ \mathcal L_{\mathrm{goal}}
+ =\left\lVert\mathcal N\!\left[
+ -\frac{1-\sigma}{\sigma}
+ \big(\vel_0(z_t)-\sg[\vel_s(z_t)]\big)
+ \right]\right\rVert_2^2,
+ \label{eq:lgoal}
 \end{equation}
-The latent optimizer minimizes the distance to this target together with
-content and distribution safeguards:
+where $\mathcal N$ removes the timestep scalar magnitude while preserving field
+direction and relative token energy.
+
+For the carrier term, we form a detached pseudo-target
 \begin{equation}
- \mathcal{L}_{\mathrm{online}}
- =w_s\mathcal{L}_{\mathrm{score}}
- +\lambda_{\mathrm{CA}}\mathcal{L}_{\mathrm{carrier}}
- +\lambda_{\mathrm{DMD}}\mathcal{L}_{\mathrm{DMD}}
- +\lambda_c\mathcal{L}_{\mathrm{content}}.
- \label{eq:loss}
+ x_0^\star=\sg\left[\hat x_0^0+
+ \eta\,\operatorname{RMSNorm}(\mathcal T_A(g_t))\right],
+ \quad
+ \mathcal L_{\mathrm{carrier}}=\tfrac12
+ \lVert\hat x_0^0-x_0^\star\rVert_2^2.
+ \label{eq:carrierloss}
 \end{equation}
-For CA-only, $\lambda_{\mathrm{DMD}}=0$. For CA+DMD, an online fake score
-provides the distribution correction. All teacher fields and pseudo-gradients
-are detached before the latent update. No global student parameters are
-trained during the main method.
-
-\subsection{Optional Offline Field Distillation}
-
-When the same procedure must be served repeatedly, a student can amortize the
-native teacher field:
+The complete per-sample objective is
 \begin{equation}
- g_\theta=G_\theta(z_t,t,p,c_s), \qquad
- \mathcal{L}_{\mathrm{field}}
- =\|\mathcal{T}_{\mathrm{CA}}(g_\theta;z_t)-g_t\|_2^2
- +\lambda_{\cos}\mathcal{L}_{\cos}.
- \label{eq:student}
+ \mathcal L=\mathcal L_{\mathrm{goal}}
+ +\lambda_c\mathcal L_{\mathrm{carrier}}
+ +\lambda_d\mathcal L_{\mathrm{dist}}
+ +\lambda_p\mathcal L_{\mathrm{content}}.
+ \label{eq:full}
 \end{equation}
-This is an acceleration variant, not a requirement of the proposed inference
-method. The online teacher remains the reference definition of the method.
+The last two terms are inherited safeguards that keep the local score direction
+within the valid sample neighborhood. All teacher fields, affinities, and
+pseudo-directions are detached at their stated boundaries. AdamW updates only
+$z_t$; with zero weight decay it is numerically Adam, while exposing decay as a
+separate regularization ablation.
 
-\subsection{Algorithmic Workflow}
-
-The online procedure has one invariant and three state transitions. The
-invariant is that every contrasted teacher branch and every candidate action
-sees the same current latent and timestep. The transitions are:
-
-\begin{enumerate}
-\item \textbf{Expose the goal.} Encode the reference once, then evaluate the
-native without-reference and with-reference branches at the current state.
-Convert their same-state velocity difference into a score difference.
-\item \textbf{Choose the carrier.} Build content affinity from the current
-latent only. Transport the native goal through that affinity and detach the
-transported field from the optimizer graph.
-\item \textbf{Execute the flow.} Construct a pseudo-$x_0$ target, perform the
-latent optimizer step, and advance the scheduler. The next state is the
-content carrier for the next goal.
-\end{enumerate}
-
-In compact form, one online inner iteration is:
-
-\begin{quote}
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.94\columnwidth}
 \small
-save $(z_t,t)$; compute $\vel_0$ and $\vel_s$; convert
-$\vel_s-\vel_0$ to $g_t$; compute $A_t$ from $z_t$; form
-$z_t^\star$; optimize $z_t$ toward $z_t^\star$; restore the selected state;
-log all fields; continue the flow.
-\end{quote}
+\textbf{One \method{} step at $(z_t,t)$.}
 
-The implementation also supports a controlled action diagnostic. After the
-raw AdamW update $\Delta z_t$, it can evaluate the three candidate states
-$z_t+a\Delta z_t$ for $a\in\{0.5,1,1.5\}$. This diagnostic is not required by
-the main method and is useful for studying delayed rewards and optimizer
-stability. It must not be confused with a complete best-of-$N$ sampler because
-the candidates are not continued to final images before selection.
+1. Save the post-scheduler state and resolve its exact $\sigma$.
 
-\subsection{Why the Carrier Is Reference-Independent}
+2. Evaluate $\vel_s$ and $\vel_0$ on that same state; form $g_t$ using
+Eq.~\ref{eq:goal}.
 
-The carrier is deliberately computed from the current content state rather than
-from the reference. This design has two consequences. First, it gives the
-reference-conditioned score a place to act without requiring the model to
-learn a second spatial arrangement. Second, it makes layout copying measurable:
-if the carrier is reference-independent, any reference layout leakage must
-come through the native goal rather than through an accidental attention cache.
+3. Build detached $A_t$ from content tokens only and transport $g_t$ by
+Eq.~\ref{eq:transport}.
 
-This distinction is also why we preserve the native edit condition in the
-positive teacher branch. Replacing reference keys and values can create a
-strong visual effect, but it mixes the desired style change with the reference
-spatial organization. The proposed contrast instead asks the native model what
-the reference changes at the current content state, then asks the carrier how
-that change should be rendered.
+4. Construct $x_0^\star$, update $z_t$ with Eq.~\ref{eq:full}, then advance
+the original flow sampler.
+\end{minipage}}
+\caption{The online algorithm. The reference is encoded once; no network
+parameters or persistent adapter state are optimized.}
+\label{fig:algorithm}
+\end{figure}
 
-\subsection{Score-Time Schedule}
+\subsection{Why Not K/V Replacement or an Adapter?}
 
-The style goal is not equally observable at every noise level. At late start
-times, the reference-conditioned and unconditioned native fields can be too
-weak or too entangled with already formed content. Our schedule audit compares
-start time 850 and 1000 while holding the model, seed, reference, and prompt
-fixed. Start time 1000 exposes a stronger early native goal and leaves enough
-trajectory for the carrier to render it.
-
-This schedule is a methodological point rather than a tuned sampler trick. A
-same-state goal that is numerically small at one timestep cannot be repaired by
-adding a carrier after the fact. Conversely, applying a strong image reward at
-very high noise can select a transient visual artifact. The formal protocol
-therefore fixes the start time, scheduler sigma lookup, and gradient RMS target
-in the reproducibility contract.
-
-\subsection{Objective Variants}
-
-The paper distinguishes three related objectives. The score-match objective
-minimizes the native goal field directly. The score-carrier objective adds a
-carrier pseudo-target to constrain where the goal is rendered. The CA+DMD
-objective adds a detached fake-score correction when a dynamic fake-score
-backend is available. These are not interchangeable names for one loss:
-
-\begin{align}
- \mathcal{L}_{\mathrm{score}}&=\|\widehat{\Delta s}_{\mathrm{native}}\|,\\
- \mathcal{L}_{\mathrm{carrier}}&=\|x_0(z_t)-
- \operatorname{stopgrad}(x_0(z_t)+\eta\mathcal{T}_{\mathrm{CA}}(g_t))\|,\\
- \mathcal{L}_{\mathrm{DMD}}&=\|x_0(z_t)-
- \operatorname{stopgrad}(x_0(z_t)+\eta(g_{\mathrm{CA}}+g_{\mathrm{DMD}}))\|.
-\end{align}
-
-The separation matters for ablations. A CA-only result should not be presented
-as a full DMD result, and a K/V replacement baseline should not be described as
-a native score teacher. The source runner records the objective components
-separately so that a future dynamic fake-score implementation can be added
-without changing the native teacher contract.
-
-\section{Reproducibility Contract}
-
-Every result is defined by a data unit containing a reference path, prompt,
-style ID, prompt ID, seed, latent state, timestep, scheduler sigma, model roots,
-and evaluator versions. The main formal protocol uses Klein9B and its native
-teacher, 512 by 512 resolution, start time 1000, 25 outer steps, dynamic 5-to-2
-inner iterations, AdamW with zero latent weight decay, disabled SLT and AdaIN,
-and a fixed style-gradient RMS target. The representative formal carrier run
-uses distance weight 0.3, content weight 0.4, carrier temperature 0.1,
-carrier strength 0.75, and carrier loss weight 0.25.
-
-The native branches share the exact post-Step1 latent and timestep. The style
-reference enters only the positive native branch. Evaluation uses the same CSD,
-CLIP-T, DINO, VGG Gram, and layout-leakage implementations for all methods.
-Generated trial artifacts are isolated under the repository's trial directory;
-the original source tree is not modified.
+K/V replacement defines both appearance and token correspondence with the
+reference. Its visual effect can be strong, but a failure cannot be attributed
+cleanly to the goal or the carrier. \method{} instead obtains a whole-model
+reference contrast and then imposes content-state correspondence. An adapter
+could amortize this computation for repeated serving, but it would answer a
+different question: whether a trainable network can predict the field. The
+main method asks whether the native field can be exposed and used online for a
+single reference. No special training set is necessary.
 
 \section{Experiments}
 
-\subsection{Questions and Metrics}
+\subsection{Protocol}
 
-We ask: (1) does a native same-state score goal improve over attention-carrier
-replacement; (2) does a content carrier improve style placement without
-copying reference layout; and (3) can a real reference image condition a field
-without a style-ID lookup? We report CSD style similarity, CLIP-T, DINO style
-similarity, VGG Gram distance, and DINO layout leakage. CSD, CLIP-T, and DINO
-style similarity are higher-is-better; Gram distance is lower-is-better; layout
-leakage is lower-is-better.
+We evaluate on Klein9B at $512\times512$. The controlled set contains three
+style references paired with three content prompts (castle, sunflower field,
+and panda), using a fixed seed for the matched teacher comparison. The
+representative audit uses style 27, ``a panda eating bamboo,'' and seed 64.
+Every compared branch uses 25 outer flow steps, a dynamic 5-to-2 inner schedule,
+start time 1000, AdamW with zero latent decay, and disabled SLT and AdaIN. The
+formal \method{} setting uses distance weight 0.3, content weight 0.4, carrier
+temperature 0.1, strength 0.75, high-pass gain 0, and carrier-loss weight 0.25.
 
-\subsection{Formal Teacher Comparison}
+We report CSD style similarity \cite{somepalli2024csd}, CLIP text alignment
+\cite{radford2021clip}, DINO style similarity \cite{oquab2024dinov2}, VGG Gram
+distance, and DINO self-similarity correlation with the reference (layout
+leakage). The first three are higher-is-better; Gram and leakage are
+lower-is-better. Because raw CSD is not a calibrated universal style metric
+\cite{frochte2026csd}, conclusions require agreement with qualitative results
+and the other metrics. All evaluator checkpoints and preprocessing hashes are
+recorded.
 
-The representative pair uses style 27, prompt kp0, seed 64. The formal
-comparison is:
+\paragraph{Baselines.}
+\emph{K/V replacement} is the original attention-carrier implementation.
+\emph{Score match} optimizes Eq.~\ref{eq:lgoal} without explicit transport.
+\emph{Score carrier} is \method. The strict audit reruns the final configuration
+from an isolated trial copy. CA+DMD is excluded from the headline comparison:
+it requires a persistent, dynamically updated fake-score model and is not
+equivalent to simply adding a frozen score term.
+
+\subsection{Does the Native Goal Improve over K/V Replacement?}
+
+Table~\ref{tab:formal} reports the representative pair. Native score matching
+raises CSD from 0.5614 to 0.6770. Adding the carrier reaches 0.6882 and improves
+Gram distance and layout leakage relative to score-only matching. A fresh
+strict run obtains 0.6896 CSD, confirming that the result is not a stale metric
+artifact.
+
 \begin{table}[t]
 \centering
-\caption{Formal representative-pair results. The strict rerun confirms the
-approximately 0.68 CSD baseline.}
+\caption{Representative matched comparison. Bold marks the best non-audit
+method; the audit independently reruns \method.}
 \label{tab:formal}
 \small
+\setlength{\tabcolsep}{3.2pt}
 \begin{tabular}{lrrrrr}
 \toprule
-Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+Method & CSD$\uparrow$ & CLIP$\uparrow$ & DINO$\uparrow$ & Gram$\downarrow$ & Leak$\downarrow$\\
 \midrule
-KV match & 0.5614 & 0.3465 & 0.0677 & 2.9437 & 0.2893\\
-Score match & 0.6770 & 0.3476 & 0.0749 & 2.4451 & 0.3018\\
-Score carrier & \textbf{0.6882} & 0.3282 & 0.0727 & \textbf{2.2915} & \textbf{0.2780}\\
-Strict audit & 0.6896 & 0.3375 & 0.0740 & 2.3901 & 0.2805\\
+K/V replace & .5614 & .3465 & .0677 & 2.9437 & .2893\\
+Score match & .6770 & \textbf{.3476} & \textbf{.0749} & 2.4451 & .3018\\
+\method & \textbf{.6882} & .3282 & .0727 & \textbf{2.2915} & \textbf{.2780}\\
+Strict audit & .6896 & .3375 & .0740 & 2.3901 & .2805\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The native score teacher is substantially stronger at start time 1000 than at
-850. The carrier term gives a useful spatial constraint: it improves the
-representative CSD and Gram trade-off over the older K/V carrier while keeping
-layout leakage lower than the unconstrained score match in the formal record.
-The strict audit differs slightly from the historical run because it is a
-fresh execution, but it reproduces the same operating regime.
-
-On a three-pair matched validation, KV match obtains CSD 0.4027 while
-score-carrier obtains 0.5662. This is evidence for the native goal plus content
-carrier decomposition, not a claim of universal superiority across all
-references.
-
-\subsection{Schedule and Regularization Ablations}
-
-The start-time result is visible in the formal pair. Score matching at start
-850 obtains CSD 0.4278, while the same native score objective at start 1000
-obtains CSD 0.6770 in the balanced formal run. The difference is accompanied
-by a lower VGG Gram distance, although the layout metric can move in the
-opposite direction. This is consistent with the goal appearing early and
-being executed over a longer remaining flow trajectory.
-
-The carrier result is also sensitive to regularization. The first matched
-comparison uses distance weight 0.3 and content weight 0.4. Removing these
-terms is not a neutral change because the optimized object is a latent and the
-score goal is only locally valid. We therefore report the weights explicitly
-rather than absorbing them into an unspecified optimizer setting.
-
-\begin{table}[t]
+\begin{figure*}[t]
 \centering
-\caption{Optimizer and latent regularization check for the representative
-score-carrier pair.}
-\label{tab:optimizer}
-\small
-\begin{tabular}{lrrrr}
-\toprule
-Optimizer & Decay & CSD & CLIP-T & Gram\\
-\midrule
-Adam & 0 & 0.6764 & 0.3187 & 2.3796\\
-AdamW & 0 & 0.6758 & 0.3269 & 2.4706\\
-AdamW & $10^{-4}$ & \textbf{0.7045} & 0.3198 & 2.4039\\
-AdamW & $10^{-3}$ & 0.6813 & 0.3158 & 2.4985\\
-\bottomrule
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{ccc}
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s00_kp1_seed64_score_carrier_style00_kp1_seed64_reference.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s00_kp1_seed64_kv_match_style00_kp1_seed64.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s00_kp1_seed64_score_carrier_style00_kp1_seed64.png}\\[-1mm]
+{\scriptsize Reference 00} & {\scriptsize K/V: castle, CSD .470} & {\scriptsize \method: castle, CSD .673}\\[1mm]
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s13_kp3_seed64_score_carrier_style13_kp3_seed64_reference.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s13_kp3_seed64_kv_match_style13_kp3_seed64.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s13_kp3_seed64_score_carrier_style13_kp3_seed64.png}\\[-1mm]
+{\scriptsize Reference 13} & {\scriptsize K/V: sunflowers, CSD .313} & {\scriptsize \method: sunflowers, CSD .335}\\[1mm]
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64_reference.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s27_kp0_seed64_kv_match_style27_kp0_seed64.png} &
+\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64.png}\\[-1mm]
+{\scriptsize Reference 27} & {\scriptsize K/V: panda, CSD .426} & {\scriptsize \method: panda, CSD .691}
 \end{tabular}
-\end{table}
+\caption{Matched qualitative comparison for all three reported pairs. Columns
+are reference, K/V replacement, and \method; prompt and seed are fixed within
+each row. The method's largest gains occur for references 00 and 27, while
+reference 13 exposes a difficult, nearly neutral case. This heterogeneity is
+why we report per-pair values and do not infer broad dominance from the mean.}
+\label{fig:qualitative}
+\end{figure*}
 
-The single-pair decay sweep is not used to define the main claim. A three-pair
-check with decay $10^{-4}$ changes CSD from 0.5662 to 0.5607 while improving
-DINO style from 0.0619 to 0.0649. We therefore keep AdamW with zero decay as
-the clean formal setting and treat nonzero decay as an explicit trade-off
-ablation.
+\paragraph{Per-reference behavior.}
+Figure~\ref{fig:qualitative} exposes variation hidden by the average. The CSD
+gains over K/V replacement are $+0.2031$, $+0.0222$, and $+0.2650$ for styles
+00, 13, and 27. Text alignment changes by $+0.0047$, $-0.0052$, and $+0.0035$,
+respectively. The near-tie on style 13 is scientifically useful: a native goal
+does not guarantee that the chosen content carrier is appropriate for every
+reference. A larger study should stratify references by spatial frequency,
+palette concentration, and semantic content rather than report only a pooled
+mean.
 
-\subsection{Goal and Carrier Diagnostics}
+The result separates two improvements. The native image-CFG residual provides
+the large style gain over attention replacement. Carrier anchoring then changes
+where that signal acts, recovering the lowest leakage in this matched record.
+The CLIP-T decrease shows that carrier strength is a trade-off rather than a
+free scalar improvement.
 
-The method predicts a specific causal pattern. The native goal should be
-reference-sensitive but content-state aligned. The carrier should be
-reference-independent and spatially structured. The final flow executor should
-translate the combination into velocity changes without recreating a second
-reference scene. We test these properties through paired branch evaluation,
-transport cosine, and layout leakage.
+\subsection{Matched Multi-Reference Result}
 
-The carrier transport cosine measures whether transport preserves the direction
-of the native goal while changing its token support. A high cosine alone is not
-sufficient: identity transport can achieve it without improving placement.
-We therefore report both field direction and image-level metrics. Likewise,
-low layout leakage alone is not sufficient: a method can avoid copying the
-reference simply by failing to transfer style. The useful operating point is a
-Pareto region with higher style similarity, acceptable CLIP-T, lower Gram
-distance, and no increase in layout leakage.
-
-\subsection{Efficiency and Deployment Modes}
-
-The proposed online method has no parameter-training phase. For one sample and
-one reference, it evaluates the native teacher branches required by the
-current score objective and performs latent optimization. Its cost is therefore
-proportional to the number of denoising stages and inner iterations, not to the
-size of a new adapter training set.
-
-There are three deployment modes. In the first, the native teacher is kept
-online and gives the strongest auditability. In the second, a reference image
-code and field student amortize the native goal for repeated deployment. In the
-third, a future dynamic fake-score backend can add DMD-style distribution
-matching. Only the first mode is needed for the main method. The second and
-third modes should be reported with separate latency and memory measurements
-because they change the computational contract.
-
-\subsection{Failure Cases}
-
-We observe four failure modes. A late start weakens the native style goal. A
-strong untransported goal can alter the wrong spatial tokens. A reference-aware
-carrier can copy reference layout. Finally, a local visual reward can choose a
-transient noisy state that scores well before the remaining trajectory drifts
-away from the final target. These failure modes map directly to the
-goal--carrier--flow decomposition and are easier to diagnose than a single
-black-box style score.
-
-The image-reward failure is especially important for interpreting online
-reinforcement learning. A reward model is not automatically a value function.
-If it evaluates a noisy intermediate state, it must be calibrated for timestep
-and future controllability. A same-state action oracle can expose the local
-ranking without solving that temporal credit-assignment problem.
-
-\subsection{Reference Image Conditioning}
-
-In the field-distillation experiment, a frozen VAE image code is compared with
-a style-ID ablation. At the best correction scale, the image code obtains MSE
-0.0000961 and cosine 0.4988, versus MSE 0.0000976 and cosine 0.4486 for the
-style-ID path. On a style-27 holdout, the two paths are close: image code
-cosine 0.3094 versus style-ID cosine 0.3164. The result supports the use of a
-real image code while making clear that a universal generalization advantage is
-not yet established.
-
-\subsection{Training and Inference}
-
-The main method performs online latent refinement and does not train an
-adapter. The optional student is only useful when many samples must reuse a
-similar teacher field. This separation is important: adding a trainable adapter
-would change the question from whether the native score can be used online to
-whether a new network can memorize its outputs.
-
-\subsection{Matched Multi-Pair Validation}
-
-The representative pair is useful for exposing the schedule and carrier
-mechanism, but a single reference can hide brittle behavior. We therefore run
-a matched three-pair validation using style/prompt pairs
-$(00,\mathrm{kp1})$, $(13,\mathrm{kp3})$, and $(27,\mathrm{kp0})$, with the same
-seed, resolution, start time, and loss weights for every method. The reference
-image, prompt, and seed are paired across rows; only the teacher mechanism is
-changed.
+Table~\ref{tab:threepair} holds reference, prompt, seed, sampler, and loss
+weights fixed across three pairs. \method{} improves mean CSD by 0.1635 and DINO
+style similarity by 0.0143 over K/V replacement, while CLIP-T remains
+effectively unchanged. Gram distance and layout leakage are slightly worse,
+revealing that stronger native style transfer is not identical to stricter
+content conservation. We therefore claim a stronger style signal, not universal
+Pareto dominance.
 
 \begin{table}[t]
 \centering
-\caption{Three-pair matched validation. Means are reported over the three
-style/prompt pairs.}
+\caption{Three-pair matched means (one seed per pair). Standard deviations are
+shown for CSD; a full matched multi-seed matrix remains a submission gate.}
 \label{tab:threepair}
 \small
+\setlength{\tabcolsep}{3.4pt}
 \begin{tabular}{lrrrrr}
 \toprule
-Method & CSD & CLIP-T & DINO & Gram & Leak\\
+Method & CSD$\uparrow$ & CLIP$\uparrow$ & DINO$\uparrow$ & Gram$\downarrow$ & Leak$\downarrow$\\
 \midrule
-KV match & 0.4027 & 0.3286 & 0.0476 & \textbf{4.0299} & \textbf{0.3352}\\
-Score carrier & \textbf{0.5662} & \textbf{0.3296} & \textbf{0.0619} & 4.0891 & 0.3479\\
+K/V replace & .4027$\pm$.0660 & .3286 & .0476 & \textbf{4.0299} & \textbf{.3352}\\
+\method & \textbf{.5662$\pm$.1635} & \textbf{.3296} & \textbf{.0619} & 4.0891 & .3479\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The native score-carrier mechanism improves CSD by 0.1635 over the K/V
-baseline and improves DINO style similarity by 0.0143. The Gram and layout
-numbers expose a real trade-off: the K/V carrier is slightly more conservative
-with respect to content statistics and layout, while score-carrier transfers a
-stronger style signal. This is exactly the type of trade-off that motivates the
-goal--carrier decomposition. A single scalar metric would hide whether the
-method is transferring style or merely copying the reference arrangement.
+\subsection{What Makes the Carrier Work?}
 
-The paired evaluation also tests the same-state contract. For each outer step,
-the positive and negative native branches receive the same post-Step1 latent,
-the same timestep, and the same image-token metadata. The only difference is
-the edit condition. The carrier is computed from the current content state and
-is reused for the score goal; it never receives reference K/V tensors. This
-means that a change in CSD can be attributed to the native goal and its
-transport rather than to an uncontrolled spatial injection.
+\paragraph{Start time.}
+At start time 850, score matching obtains 0.4278 CSD; at 1000, the same
+objective obtains 0.6770. The carrier cannot recover a goal that is weak or
+introduced after too much content has already crystallized. The result supports
+early access to the native style residual, but does not by itself establish a
+particular transformer layer at which style ``appears.'' Layerwise emergence is
+therefore a future causal-probe question, not a premise of the method.
 
-\subsection{What the Numbers Do and Do Not Establish}
+\paragraph{Carrier versus score-only.}
+On the representative case, carrier anchoring changes CSD from 0.6770 to
+0.6882, Gram from 2.4451 to 2.2915, and leakage from 0.3018 to 0.2780. This is
+the causal comparison for the carrier: both rows use the same native goal and
+differ by the content-affinity pseudo-target. The gain is modest relative to
+the goal extraction itself, but it is consistent across the three metrics that
+measure style statistics and spatial copying on this case.
 
-The results support three bounded statements. First, the reference-conditioned
-native score contains a usable style signal at the early formal start time.
-Second, transporting this signal through the current content affinity improves
-the matched style metrics relative to the K/V replacement baseline. Third, a
-frozen real-image code can condition an optional field student without making
-the reference an ID lookup.
+\paragraph{Optimizer regularization.}
+A single-pair sweep gives CSD 0.6764 for Adam, 0.6758 for AdamW with zero decay,
+0.7045 for decay $10^{-4}$, and 0.6813 for $10^{-3}$. However, over three pairs,
+$10^{-4}$ changes mean CSD from 0.5662 to 0.5607. We therefore use zero decay
+and report nonzero decay only as an explicit latent regularizer. This avoids
+selecting a headline setting from one favorable reference.
 
-They do not establish that every content category improves, that the image code
-is the best possible reference encoder, or that the optional student is always
-better than the online teacher. They also do not establish a full DMD result:
-the DMD term is only formal when the fake score is dynamic, persistent, and
-trained or refreshed with an on-policy protocol. We keep these boundaries in
-the paper because the proposed decomposition is most useful when each role can
-be independently falsified.
+\subsection{Mechanism Audit}
 
-The same boundaries guide the supplementary reward study. The reward study
-asks whether a final-image metric can guide local action selection, but its
-intermediate VAE decode is not the final flow executor. Its negative result is
-therefore compatible with a strong native score-carrier baseline and motivates
-delayed value estimation rather than a change to the main teacher.
+The decomposition yields interventions that a monolithic feature-injection
+method does not. Table~\ref{tab:claims} separates established observations from
+open claims. In particular, the start-time result concerns noise level, not
+network depth. We deliberately do not claim that a specific transformer layer
+first represents style until layer probes and causal activation swaps are run.
 
-\section{Supplementary Diagnostic: Image Reward}
+\begin{table}[t]
+\centering
+\caption{Claim--evidence audit. ``Limited'' means the intervention is valid but
+the sample coverage is not yet sufficient for a broad claim.}
+\label{tab:claims}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{0.22\columnwidth}p{0.43\columnwidth}p{0.23\columnwidth}}
+\toprule
+Claim & Controlled evidence & Status\\
+\midrule
+Native goal is useful & Same-state score vs. K/V; $+0.1635$ mean CSD & Supported on 3 pairs\\
+Carrier changes placement & Score-only vs. carrier; leak $.3018\!\to\!.2780$ & Limited to formal pair\\
+Goal benefits from early noise & Start $850\!\to\!1000$; CSD $.4278\!\to\!.6770$ & Limited to formal pair\\
+Carrier excludes reference layout & Reference tensor absent from Eq.~\ref{eq:affinity} and asserted in code & By construction\\
+Broad generalization & Matched multi-seed and human study & Not yet established\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-We include the complete image-reward study in the supplement. Its purpose is
-to test reward alignment, not to introduce a second method. A frozen CSD model
-scores low-resolution VAE decodes of noisy intermediate states. The reward is
-the candidate-minus-base CSD change plus a small native shaping term.
+\paragraph{Detach-boundary check.}
+The teacher branch is not differentiated through, and the shared
+$-z_t/\sigma$ score term is removed analytically before detachment. This avoids
+an identity gradient that would appear if two full scores were independently
+formed and subtracted after one branch had been detached. Gradients enter
+through $\vel_0(z_t)$ in Eq.~\ref{eq:lgoal} and through $\hat x_0^0(z_t)$ in
+Eq.~\ref{eq:carrierloss}; the native residual and affinity remain target data.
+This implementation detail is central to reproducing the intended score
+matching objective.
 
-The result is negative on the formal protocol. The baseline CSD is 0.6896;
-all-stage image-reward GRPO obtains 0.6445; a same-state local reward oracle
-obtains 0.6817; and a late-stage-only schedule obtains 0.6832. The late schedule
-improves CLIP-T, DINO style, and Gram distance, but not CSD.
+\paragraph{Carrier limiting cases.}
+When $\lambda_A=0$, Eq.~\ref{eq:transport} reduces to score-only guidance. When
+$A_t=I$, increasing carrier strength has no effect. A uniform $A_t$ collapses
+token-specific directions toward a global style field, while a reference-based
+$A_t$ reintroduces the layout-copying path we seek to remove. These cases give
+simple unit tests for identity, smoothing, and reference-independence.
 
-This does not contradict best-of-$N$ free lunch. The diagnostic is not final
-image best-of-$N$: it greedily selects among three scalar multiples of one
-local update using CSD on a noisy intermediate decode. A true oracle would
-branch complete remaining trajectories and select by final-image CSD. The
-supplement therefore reports a temporal credit-assignment failure, not a
-failure of CSD as a final-image selector.
+\subsection{Online Refinement, DMD, and Amortization}
 
-\section{Limitations and Discussion}
+The word ``distillation'' can refer to three different optimization objects.
+Table~\ref{tab:modes} makes the distinction explicit. \method{} distills a frozen
+native score contrast into the current sample in real time. It does not train a
+global adapter. A field student is optional amortization. A CA+DMD extension
+additionally estimates a fake-distribution score and therefore has a different
+state and update contract.
 
-First, the current field evidence is still small relative to the diversity of
-real style references. Second, the content affinity is a deliberately simple
-reference-independent carrier; stronger token transport may improve local
-placement. Third, CA+DMD requires a genuine dynamic fake-score backend before
-making a formal distribution-matching claim. Fourth, the image-reward study
-shows that intermediate visual scores can be misleading, so future reward
-learning must use delayed final-image feedback or a value model rather than
-greedy noisy-state scoring.
+\begin{table}[t]
+\centering
+\caption{Optimization contracts. Only the first row is the main method.}
+\label{tab:modes}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llll}
+\toprule
+Mode & Optimized & Persistent & Data\\
+\midrule
+\method & current $z_t$ & none & one sample/reference\\
+Field student & $G_\theta$ & student weights & dumped teacher fields\\
+CA+DMD & $z_t$, fake score & critic state & online fake samples\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\section{Conclusion}
+For CA+DMD, a valid additional direction has the form
+\begin{equation}
+ g_t^{\mathrm{total}}=\lambda_A\mathcal T_A(g_t)
+ +\lambda_{\mathrm{DM}}\big(\score_s-\score_{\mathrm{fake},\phi}\big).
+ \label{eq:dmdext}
+\end{equation}
+The fake scorer $\phi$ must persist and be refreshed on current generated
+states; resetting it or replacing it with a fixed model is not DMD. Our code
+exposes this extension and rejects CA+DMD when no real fake-score backend is
+configured. Since current controlled results do not establish a gain, it is an
+extension rather than part of the headline claim.
 
-We presented an online image-conditioned score refinement method based on a
-goal--carrier--flow decomposition. A native same-state score difference
-defines the style goal, a reference-independent content affinity determines
-where that goal is rendered, and the flow scheduler executes the resulting
-field. This formulation preserves the Think with Image viewpoint while
-avoiding a required adapter or offline training stage. The formal results
-support the native score-carrier direction, and the supplementary reward audit
-clarifies an important boundary: local noisy-state CSD reward is not equivalent
-to final-image best-of-$N$. We hope this separation makes future image-conditioned
-score distillation methods easier to analyze, reproduce, and improve.
+An optional student $G_\theta(z_t,t,p,E(x_s))$ can regress the transported
+field for repeated use. A deterministic VAE image code reaches field cosine
+0.4988 versus 0.4486 for a style-ID code in the random matched split, but the
+held-out-style comparison is nearly tied (0.3094 vs. 0.3164). This confirms a
+real-image interface without establishing universal out-of-style
+generalization; full details belong in the supplement.
+
+\subsection{Properties of the Carrier}
+
+The simple affinity in Eq.~\ref{eq:affinity} has two useful properties. They do
+not prove image-quality improvement, but they state exactly what the carrier
+can and cannot introduce.
+
+\paragraph{Reference independence.}
+Let $A_t=F(c_t)$ for deterministic $F$, and hold the current content state
+$c_t$ fixed while changing the reference. Then
+$\partial A_t/\partial x_s=0$. Consequently, the reference can change
+$\mathcal T_A(g_t)$ only through the goal $g_t$; it cannot change the transport
+operator itself. This is weaker than saying the final image cannot resemble the
+reference, since resemblance may be encoded in the native goal. It is stronger
+than K/V replacement in one precise respect: there is no direct path from
+reference token geometry to the explicit carrier.
+
+\paragraph{Non-expansion of token energy.}
+Each row of $A_t$ is nonnegative and sums to one. For
+$0\leq\lambda_A\leq1$, Eq.~\ref{eq:transport} is also a convex token-mixing
+operator. With $\lVert g\rVert_{\infty,2}=\max_u\lVert g_u\rVert_2$,
+\begin{equation}
+ \lVert\mathcal T_A(g)\rVert_{\infty,2}
+ \leq \lVert g\rVert_{\infty,2}.
+ \label{eq:stability}
+\end{equation}
+Indeed, each output token is a convex combination of input goal tokens, so the
+triangle inequality gives Eq.~\ref{eq:stability}. The carrier can redistribute
+a strong native residual, but before the explicit RMS normalization it cannot
+create a larger token vector than the field already contains. This helps
+separate spatial transport from guidance-scale amplification.
+
+These properties explain why we keep carrier strength in $[0,1]$ in the formal
+protocol. High-pass gains or extrapolative strengths above one may improve
+texture, but they forfeit the stability statement and must be evaluated as
+separate appearance amplifiers.
+
+\subsection{Training Cost, Reproducibility, and Boundaries}
+
+The method has no parameter-training stage. Each online inner iteration adds
+native with-reference and without-reference evaluations plus latent
+backpropagation; cost scales with flow steps and inner iterations. An optional
+image-code student can amortize the field for repeated deployment, but is
+reported only in the supplement and is not part of \method.
+
+Every result is keyed by reference path, prompt, seed, saved latent, timestep,
+scheduler sigma, model roots, loss weights, optimizer configuration, and
+evaluator hashes. Positive and negative native branches are asserted to share
+the post-scheduler state. Generated artifacts, manifests, and the isolated
+reward trial live inside the project repository. The original Hyperion source
+tree is never modified.
+
+Two boundaries matter. First, the present matched comparison is small; a
+multi-seed, larger-reference benchmark and human preference study are required
+before claiming broad superiority. Second, a frozen image metric on a noisy
+intermediate decode is not a value function. In our supplementary diagnostic,
+greedy CSD-based action selection does not beat the 0.6896 baseline, even under
+a same-state local oracle. This does not contradict final-image best-of-$N$;
+the candidates were not rolled out to final images before selection.
+
+\subsection{Failure Modes and Evaluation Scope}
+
+\paragraph{Goal and carrier failures.}
+The carrier cannot invent a style direction absent from the native contrast,
+and a reference with a dominant object may place semantics inside $g_t$ along
+with appearance. Meanwhile, cosine transport can smooth high-frequency changes
+across visually similar tokens that belong to different objects. The difficult
+style-13 row in Figure~\ref{fig:qualitative} is consistent with these limits.
+Sparse, object-aware, or multiscale carriers are plausible extensions if their
+transport operator remains reference-independent.
+
+\paragraph{Evaluation and use.}
+CSD, CLIP-T, Gram statistics, and DINO self-similarity each capture only part of
+style fidelity and content preservation. The three-pair study is therefore a
+mechanism test, not a definitive benchmark; matched multi-seed evaluation and
+blinded human comparison remain necessary. Online refinement also trades
+training cost for repeated inference-time model evaluations. Finally,
+reference-conditioned style systems can facilitate imitation of living
+artists. Dataset licenses, opt-out policies, and attribution analysis should
+accompany deployment; CSD is not evidence of authorship or ownership.
+
+\section{Discussion and Conclusion}
+
+\method{} turns a reference image into an explicit, testable operation. The
+native score contrast says what visual change the reference requests; a
+reference-independent affinity says where that change can be rendered in the
+current scene; the flow parameterization says how it becomes a denoising
+update. This resolves the role of CA without introducing an adapter: native
+cross attention participates in goal formation, while the explicit carrier
+anchors spatial execution.
+
+The current evidence supports the mechanism on controlled cases and exposes
+its trade-offs rather than hiding them. The next decisive experiment is not a
+more elaborate loss, but a larger matched matrix that tests whether carrier
+anchoring consistently improves the style--layout frontier. More expressive
+content-only transport and final-trajectory reward selection are natural
+extensions. The central principle remains simple: thinking with a reference
+image requires separating the visual goal from the spatial carrier that makes
+it executable.
 
 \clearpage
-\begin{thebibliography}{99}
-\bibitem{ho2022cfg}
-Jonathan Ho and Tim Salimans. 2022. Classifier-free diffusion guidance. In
-\emph{NeurIPS Workshop on Deep Generative Models and Downstream Applications}.
+\bibliographystyle{plain}
+\bibliography{AAAI/references}
 
-\bibitem{poole2022dreamfusion}
-Ben Poole, Ajay Jain, Jonathan T. Barron, and Ben Mildenhall. 2022.
-DreamFusion: Text-to-3D using 2D diffusion. In \emph{ICLR}.
-
-\bibitem{yin2023dmd}
-Tingbo Hou, Yuan Liu, Zhengyi Wang, and others. 2023. Classifier-free
-diffusion guidance and distribution matching distillation. In \emph{ICLR}.
-
-\bibitem{sauer2024dmd2}
-Axel Sauer, Dominik Lorenz, Andreas Blattmann, and others. 2024. DMD2:
- Distillation-free one-step image generation. In \emph{ICLR}.
-
-\bibitem{hertz2023prompt}
-Amir Hertz, Ron Mokady, Jay Tenenbaum, Kfir Aberman, Yael Pritch, and Daniel
-Cohen-Or. 2023. Prompt-to-prompt image editing with cross attention control.
-In \emph{ICLR}.
-
-\bibitem{brooks2023instructpix2pix}
-Tim Brooks, Aleksander Holynski, and Alexei A. Efros. 2023. InstructPix2Pix:
-Learning to follow image editing instructions. In \emph{CVPR}.
-
-\bibitem{ye2023ipadapter}
-Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. 2023. IP-Adapter:
-Text compatible image prompt adapter for text-to-image diffusion models. In
-\emph{arXiv preprint arXiv:2308.06721}.
-
-\bibitem{ho2020ddpm}
-Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising diffusion
-probabilistic models. In \emph{NeurIPS}.
-
-\bibitem{song2021score}
-Yang Song, Jascha Sohl-Dickstein, Diederik P. Kingma, Abhishek Kumar, Stefano
-Ermon, and Ben Poole. 2021. Score-based generative modeling through
-stochastic differential equations. In \emph{ICLR}.
-
-\bibitem{lipman2023flow}
-Yaron Lipman, Ricky T. Q. Chen, Heli Ben-Hamu, Maximilian Nickel, and Mattias
-Le. 2023. Flow matching for generative modeling. In \emph{International
-Conference on Learning Representations}.
-
-\bibitem{rombach2022ldm}
-Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bjorn
-Ommer. 2022. High-resolution image synthesis with latent diffusion models.
-In \emph{CVPR}.
-
-\bibitem{saharia2022imagen}
-Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily
-Denton, Seyed Kamyar Seyed Ghasemipour, Burak Karagol Ayan, S. Sara Mahdavi,
-Raphael Gontijo Lopes, et al. 2022. Photorealistic text-to-image diffusion
-models with deep language understanding. In \emph{NeurIPS}.
-
-\bibitem{meng2022sdedit}
-Chenlin Meng, Yutong He, Yang Song, Jiaming Song, Jiaxin Wu, Jun-Yan Zhu, and
-Stefano Ermon. 2022. SDEdit: Guided image synthesis and editing with stochastic
-differential equations. In \emph{ICLR}.
-
-\bibitem{mokady2023nulltext}
-Ron Mokady, Amir Hertz, Amit H. Bermano, and Daniel Cohen-Or. 2023. Null-text
-inversion for editing real images using guided diffusion models. In
-\emph{CVPR}.
-
-\bibitem{tumanyan2023plugplay}
-Narek Tumanyan, Michal Geyer, Shai Bagon, and Tali Dekel. 2023. Plug-and-play
- diffusion features for text-driven image-to-image translation. In \emph{CVPR}.
-
-\bibitem{zhang2023controlnet}
-Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. 2023. Adding conditional control
-to text-to-image diffusion models. In \emph{ICCV}.
-
-\bibitem{kawar2022imagic}
-Bahjat Kawar, Mordechai Shamir, Michal Geyer, and Tali Dekel. 2022. Imagic:
-Text-based real image editing with diffusion models. In \emph{CVPR}.
-
-\bibitem{gal2022textual}
-Rinon Gal, Yuval Alaluf, Yuval Atzmon, Or Patashnik, Amit H. Bermano, Gal
-Chechik, and Daniel Cohen-Or. 2022. An image is worth one word: Personalizing
-text-to-image generation using textual inversion. In \emph{ICLR}.
-
-\bibitem{ruiz2023dreambooth}
-Nataniel Ruiz, Yuanzhen Li, Varun Jampani, Wei Wei, Tingbo Hou, Yuanzhen
-Liang, Yifan Li, and Yael Pritch. 2023. DreamBooth: Fine tuning text-to-image
-diffusion models for subject-driven generation. In \emph{CVPR}.
-
-\bibitem{esser2024sd3}
-Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas Muller,
-Harry Saini, Yam Levi, Dominik Lorenz, Axel Sauer, Frederic Boesel, et al.
-2024. Scaling rectified flow transformers for high-resolution image synthesis.
-In \emph{International Conference on Machine Learning}.
-
-\bibitem{zhang2023stylealigned}
-Qinsheng Zhang, Jiaming Song, Xuebo Liu, and others. 2023. Style-aligned
-image generation via shared attention. In \emph{arXiv preprint
-arXiv:2312.02133}.
-
-\bibitem{liu2023visual}
-Xingchao Liu, Chengyue Gong, and others. 2023. Efficient image-to-image
-translation with diffusion models. In \emph{arXiv preprint arXiv:2308.10792}.
-
-\bibitem{song2021denoising}
-Yang Song, Conor Durkan, Iain Murray, and Stefano Ermon. 2021. Maximum
-likelihood training of score-based diffusion models. In \emph{NeurIPS}.
-
-\bibitem{salimans2022progressive}
-Tim Salimans and Jonathan Ho. 2022. Progressive distillation for fast
-sampling of diffusion models. In \emph{ICLR}.
-
-\bibitem{meng2023distillation}
-Mengyu Ding, Wenlong Zhao, and others. 2023. On distillation for diffusion
-models and score-based generative modeling. In \emph{arXiv preprint}.
-\end{thebibliography}
+\clearpage
+\input{AAAI/reproducibility}
 
 \end{document}
