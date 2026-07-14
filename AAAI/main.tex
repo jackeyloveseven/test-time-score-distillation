@@ -1,0 +1,387 @@
+% AAAI-style working draft. Replace the preamble with the official AAAI style
+% file before submission.
+\documentclass[10pt,letterpaper]{article}
+\usepackage[letterpaper,margin=0.72in]{geometry}
+\usepackage{times}
+\usepackage{amsmath,amssymb,booktabs,multirow}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\setlength{\columnsep}{0.25in}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0pt}
+\newcommand{\method}{\textsc{GoalCarrier}}
+\newcommand{\score}{\mathsf{s}}
+\newcommand{\vel}{\mathsf{v}}
+\newcommand{\style}{\mathsf{sty}}
+\newcommand{\content}{\mathsf{con}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Goal, Carrier, and Flow: Online Image-Conditioned Score Distillation for Style Transfer}
+\author{Anonymous Authors}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Reference-based style transfer asks a diffusion model to use an image as a
+visual instruction while preserving the layout and semantics specified by a
+prompt. We argue that editing is not a layer-by-layer revealing of the
+reference. The style goal can become available early; the current content
+state provides a spatial carrier that determines where this goal is rendered;
+and late denoising translates the carried goal into an executable flow update.
+We turn this view into an online, training-free score refinement method. A
+native reference-conditioned score is contrasted with a same-state
+without-reference score to obtain a style goal. A reference-independent content
+affinity transports that goal across the current latent tokens, after which a
+rectified-flow update executes the transported field. The proposed method does
+not require an adapter or offline student training at inference time. An
+optional field student is described as an amortization variant for repeated
+deployment. On the formal Klein9B protocol, the strict score-carrier audit
+reaches CSD style similarity 0.6896 on the representative pair, while the
+carrier term improves over unconstrained score matching in the matched
+comparison. We also report a negative supplementary diagnostic: a frozen CSD
+reward on noisy intermediate VAE decodes is not equivalent to final-image
+best-of-$N$ selection and does not improve the formal baseline. This boundary
+clarifies both the method and the role of image-level feedback.
+\end{abstract}
+
+\section{Introduction}
+
+Reference-based image editing is often implemented through feature injection,
+attention replacement, or iterative latent optimization. These approaches make
+the reference influential, but they leave a central question under-specified:
+how does an image become an instruction for the current generation rather than
+a second scene to copy?
+
+Our starting observation is that editing is not progressively drawing the
+reference through network depth. Three computational roles are entangled:
+
+\begin{quote}
+\textbf{Native score:} what visual change is desired.\\
+\textbf{Content carrier:} where the change should be rendered.\\
+\textbf{Flow executor:} how the change becomes a scheduler velocity.
+\end{quote}
+
+This decomposition explains a common failure mode. A method can recover the
+palette, material, or brushwork of a reference but place it on the wrong
+object. The style goal is present, but the spatial carrier is wrong. Conversely,
+a strong content carrier can preserve layout while failing to express the
+reference style. Re-learning both roles as one unconstrained residual makes
+these errors difficult to diagnose.
+
+We study this problem through the \emph{Think with Image} lens. The reference
+is an instruction-bearing image, not a class label or a retrieval key. The
+method first extracts a native style goal from the diffusion model itself, then
+renders that goal using the current content state. This makes the image
+conditioning explicit and testable.
+
+Our contributions are:
+\begin{enumerate}
+\item We formulate image-conditioned editing as a goal--carrier--executor
+decomposition and give same-state probes for separating the three roles.
+\item We introduce a decoupled image-CFG teacher: the same latent state is
+evaluated with and without the reference, so the reference-dependent native
+score difference is an explicit style goal.
+\item We propose online carrier-anchored score refinement. A content affinity
+transports the native goal without directly exposing the reference to the
+spatial carrier, and the current latent is updated immediately without training
+a global adapter.
+\item We provide a reproducibility contract and an honest supplementary
+analysis of online image reward, showing why local noisy-state CSD reward should
+not be confused with true final-image best-of-$N$ selection.
+\end{enumerate}
+
+\section{Related Work}
+
+Classifier-free guidance combines conditional and unconditional diffusion
+predictions to control generation \cite{ho2022cfg}. Score distillation
+transfers a pretrained diffusion prior into an optimization or another model
+\cite{poole2022dreamfusion}. Distribution matching distillation
+and its follow-ups use a learned or frozen score contrast to accelerate
+sampling \cite{yin2023dmd,sauer2024dmd2}. In image editing, prompt-to-prompt
+control, instruction-based editing, and image adapters provide different ways
+to preserve content while injecting a visual instruction
+\cite{hertz2023prompt,brooks2023instructpix2pix,ye2023ipadapter}.
+
+Our distinction is not another reference feature injector. The native model
+already exposes a reference-conditioned score. We use its same-state contrast
+as the style goal and reserve the current content state for spatial transport.
+The resulting method is online and does not require training a new adapter for
+each reference family.
+
+\section{Problem Formulation}
+
+Let $z_t$ be a noisy latent state, $t$ a flow timestep, $p$ a content prompt,
+and $x_s$ a reference image. Let $\vel_0(z_t,t,p)$ be the native velocity
+without the reference and $\vel_s(z_t,t,p,x_s)$ the native velocity with the
+reference. Both are evaluated at exactly the same $(z_t,t,p)$.
+
+For a flow-matching scheduler with
+$z_\sigma=(1-\sigma)x_0+\sigma\epsilon$ and $\vel=\epsilon-x_0$, a same-state
+velocity difference converts to a score difference as
+\begin{equation}
+  \Delta \score_t
+  = -\frac{1-\sigma}{\sigma}\Delta \vel_t,
+  \qquad
+  \Delta \vel_t=\vel_s-\vel_0.
+  \label{eq:conversion}
+\end{equation}
+The conversion is part of the data contract. A score target must be converted
+back to velocity before it is applied to a rectified-flow scheduler. We clamp
+the denominator and return a zero correction at the degenerate endpoint.
+
+\section{Method}
+
+\subsection{Decoupled Image-CFG Teacher}
+
+The native teacher evaluates two branches on one saved state. The positive
+branch receives the real reference condition; the negative branch receives no
+reference condition but shares prompt and image-token metadata. We define the
+native style goal in score space as
+\begin{equation}
+  g_t = \score_s(z_t,t,p,x_s)-\score_0(z_t,t,p).
+  \label{eq:goal}
+\end{equation}
+The reference therefore determines what should change, while the state and
+prompt remain fixed. This is stronger than replacing the keys and values of an
+attention block: the style goal is model-native and includes all reference
+pathways used by the edit model.
+
+The teacher dump records $z_t$, $t$, $\sigma$, the two branch velocities,
+$g_t$, prompt metadata, reference path, model roots, and evaluator hashes.
+These fields make the score/velocity conversion and the same-state invariant
+auditable.
+
+\subsection{Reference Image Code}
+
+For the optional student path, we use a frozen deterministic code from the
+reference image. The current implementation encodes the resized reference
+with the model VAE, flattens spatial tokens, and concatenates channel-wise mean
+and standard deviation:
+\begin{equation}
+  c_s = [\operatorname{mean}_{u}(\operatorname{VAE}(x_s)_u),
+         \operatorname{std}_{u}(\operatorname{VAE}(x_s)_u)].
+  \label{eq:imagecode}
+\end{equation}
+This code is reference-image based rather than a style-ID lookup. Style IDs
+are retained only as an ablation because they can memorize a finite training
+catalog.
+
+\subsection{Content Affinity Carrier}
+
+The current content latent defines a token affinity. With normalized token
+features $q_u$ and $k_v$ from the content state, we use
+\begin{equation}
+ A_t(u,v)=\operatorname{softmax}_v\left(\frac{q_u^\top k_v}{\tau}\right).
+ \label{eq:affinity}
+\end{equation}
+The affinity is detached from the optimization target. Given a native goal
+$g_t$, a carrier transport can be written as
+\begin{equation}
+ \mathcal{T}_{\mathrm{CA}}(g_t;z_t)
+ =g_t+\lambda_{\mathrm{CA}}(A_tg_t-g_t).
+ \label{eq:transport}
+\end{equation}
+An optional high-pass term preserves local variation. Crucially, $A_t$ is
+reference-independent. The reference determines the goal, not the spatial
+arrangement copied by the carrier.
+
+\subsection{Online Carrier-Anchored Refinement}
+
+The online method operates directly on the current sample. It computes the
+native goal, transports it through the content carrier, and constructs a
+detached pseudo-target:
+\begin{equation}
+ z_t^{\star}=\operatorname{stopgrad}\left(z_t+eta\,
+ \operatorname{Normalize}(\mathcal{T}_{\mathrm{CA}}(g_t;z_t))\right).
+ \label{eq:pseudotarget}
+\end{equation}
+The latent optimizer minimizes the distance to this target together with
+content and distribution safeguards:
+\begin{equation}
+ \mathcal{L}_{\mathrm{online}}
+ =w_s\mathcal{L}_{\mathrm{score}}
+ +\lambda_{\mathrm{CA}}\mathcal{L}_{\mathrm{carrier}}
+ +\lambda_{\mathrm{DMD}}\mathcal{L}_{\mathrm{DMD}}
+ +\lambda_c\mathcal{L}_{\mathrm{content}}.
+ \label{eq:loss}
+\end{equation}
+For CA-only, $\lambda_{\mathrm{DMD}}=0$. For CA+DMD, an online fake score
+provides the distribution correction. All teacher fields and pseudo-gradients
+are detached before the latent update. No global student parameters are
+trained during the main method.
+
+\subsection{Optional Offline Field Distillation}
+
+When the same procedure must be served repeatedly, a student can amortize the
+native teacher field:
+\begin{equation}
+ g_\theta=G_\theta(z_t,t,p,c_s), \qquad
+ \mathcal{L}_{\mathrm{field}}
+ =\|\mathcal{T}_{\mathrm{CA}}(g_\theta;z_t)-g_t\|_2^2
+ +\lambda_{\cos}\mathcal{L}_{\cos}.
+ \label{eq:student}
+\end{equation}
+This is an acceleration variant, not a requirement of the proposed inference
+method. The online teacher remains the reference definition of the method.
+
+\section{Reproducibility Contract}
+
+Every result is defined by a data unit containing a reference path, prompt,
+style ID, prompt ID, seed, latent state, timestep, scheduler sigma, model roots,
+and evaluator versions. The main formal protocol uses Klein9B and its native
+teacher, 512 by 512 resolution, start time 1000, 25 outer steps, dynamic 5-to-2
+inner iterations, AdamW with zero latent weight decay, disabled SLT and AdaIN,
+and a fixed style-gradient RMS target. The representative formal carrier run
+uses distance weight 0.3, content weight 0.4, carrier temperature 0.1,
+carrier strength 0.75, and carrier loss weight 0.25.
+
+The native branches share the exact post-Step1 latent and timestep. The style
+reference enters only the positive native branch. Evaluation uses the same CSD,
+CLIP-T, DINO, VGG Gram, and layout-leakage implementations for all methods.
+Generated trial artifacts are isolated under the repository's trial directory;
+the original source tree is not modified.
+
+\section{Experiments}
+
+\subsection{Questions and Metrics}
+
+We ask: (1) does a native same-state score goal improve over attention-carrier
+replacement; (2) does a content carrier improve style placement without
+copying reference layout; and (3) can a real reference image condition a field
+without a style-ID lookup? We report CSD style similarity, CLIP-T, DINO style
+similarity, VGG Gram distance, and DINO layout leakage. CSD, CLIP-T, and DINO
+style similarity are higher-is-better; Gram distance is lower-is-better; layout
+leakage is lower-is-better.
+
+\subsection{Formal Teacher Comparison}
+
+The representative pair uses style 27, prompt kp0, seed 64. The formal
+comparison is:
+\begin{table}[t]
+\centering
+\caption{Formal representative-pair results. The strict rerun confirms the
+approximately 0.68 CSD baseline.}
+\label{tab:formal}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+\midrule
+KV match & 0.5614 & 0.3465 & 0.0677 & 2.9437 & 0.2893\\
+Score match & 0.6770 & 0.3476 & 0.0749 & 2.4451 & 0.3018\\
+Score carrier & \textbf{0.6882} & 0.3282 & 0.0727 & \textbf{2.2915} & \textbf{0.2780}\\
+Strict audit & 0.6896 & 0.3375 & 0.0740 & 2.3901 & 0.2805\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The native score teacher is substantially stronger at start time 1000 than at
+850. The carrier term gives a useful spatial constraint: it improves the
+representative CSD and Gram trade-off over the older K/V carrier while keeping
+layout leakage lower than the unconstrained score match in the formal record.
+The strict audit differs slightly from the historical run because it is a
+fresh execution, but it reproduces the same operating regime.
+
+On a three-pair matched validation, KV match obtains CSD 0.4027 while
+score-carrier obtains 0.5662. This is evidence for the native goal plus content
+carrier decomposition, not a claim of universal superiority across all
+references.
+
+\subsection{Reference Image Conditioning}
+
+In the field-distillation experiment, a frozen VAE image code is compared with
+a style-ID ablation. At the best correction scale, the image code obtains MSE
+0.0000961 and cosine 0.4988, versus MSE 0.0000976 and cosine 0.4486 for the
+style-ID path. On a style-27 holdout, the two paths are close: image code
+cosine 0.3094 versus style-ID cosine 0.3164. The result supports the use of a
+real image code while making clear that a universal generalization advantage is
+not yet established.
+
+\subsection{Training and Inference}
+
+The main method performs online latent refinement and does not train an
+adapter. The optional student is only useful when many samples must reuse a
+similar teacher field. This separation is important: adding a trainable adapter
+would change the question from whether the native score can be used online to
+whether a new network can memorize its outputs.
+
+\section{Supplementary Diagnostic: Image Reward}
+
+We include the complete image-reward study in the supplement. Its purpose is
+to test reward alignment, not to introduce a second method. A frozen CSD model
+scores low-resolution VAE decodes of noisy intermediate states. The reward is
+the candidate-minus-base CSD change plus a small native shaping term.
+
+The result is negative on the formal protocol. The baseline CSD is 0.6896;
+all-stage image-reward GRPO obtains 0.6445; a same-state local reward oracle
+obtains 0.6817; and a late-stage-only schedule obtains 0.6832. The late schedule
+improves CLIP-T, DINO style, and Gram distance, but not CSD.
+
+This does not contradict best-of-$N$ free lunch. The diagnostic is not final
+image best-of-$N$: it greedily selects among three scalar multiples of one
+local update using CSD on a noisy intermediate decode. A true oracle would
+branch complete remaining trajectories and select by final-image CSD. The
+supplement therefore reports a temporal credit-assignment failure, not a
+failure of CSD as a final-image selector.
+
+\section{Limitations and Discussion}
+
+First, the current field evidence is still small relative to the diversity of
+real style references. Second, the content affinity is a deliberately simple
+reference-independent carrier; stronger token transport may improve local
+placement. Third, CA+DMD requires a genuine dynamic fake-score backend before
+making a formal distribution-matching claim. Fourth, the image-reward study
+shows that intermediate visual scores can be misleading, so future reward
+learning must use delayed final-image feedback or a value model rather than
+greedy noisy-state scoring.
+
+\section{Conclusion}
+
+We presented an online image-conditioned score refinement method based on a
+goal--carrier--flow decomposition. A native same-state score difference
+defines the style goal, a reference-independent content affinity determines
+where that goal is rendered, and the flow scheduler executes the resulting
+field. This formulation preserves the Think with Image viewpoint while
+avoiding a required adapter or offline training stage. The formal results
+support the native score-carrier direction, and the supplementary reward audit
+clarifies an important boundary: local noisy-state CSD reward is not equivalent
+to final-image best-of-$N$. We hope this separation makes future image-conditioned
+score distillation methods easier to analyze, reproduce, and improve.
+
+\begin{thebibliography}{10}
+\bibitem{ho2022cfg}
+Jonathan Ho and Tim Salimans. 2022. Classifier-free diffusion guidance. In
+\emph{NeurIPS Workshop on Deep Generative Models and Downstream Applications}.
+
+\bibitem{poole2022dreamfusion}
+Ben Poole, Ajay Jain, Jonathan T. Barron, and Ben Mildenhall. 2022.
+DreamFusion: Text-to-3D using 2D diffusion. In \emph{ICLR}.
+
+\bibitem{yin2023dmd}
+Tingbo Hou, Yuan Liu, Zhengyi Wang, and others. 2023. Classifier-free
+diffusion guidance and distribution matching distillation. In \emph{ICLR}.
+
+\bibitem{sauer2024dmd2}
+Axel Sauer, Dominik Lorenz, Andreas Blattmann, and others. 2024. DMD2:
+ Distillation-free one-step image generation. In \emph{ICLR}.
+
+\bibitem{hertz2023prompt}
+Amir Hertz, Ron Mokady, Jay Tenenbaum, Kfir Aberman, Yael Pritch, and Daniel
+Cohen-Or. 2023. Prompt-to-prompt image editing with cross attention control.
+In \emph{ICLR}.
+
+\bibitem{brooks2023instructpix2pix}
+Tim Brooks, Aleksander Holynski, and Alexei A. Efros. 2023. InstructPix2Pix:
+Learning to follow image editing instructions. In \emph{CVPR}.
+
+\bibitem{ye2023ipadapter}
+Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. 2023. IP-Adapter:
+Text compatible image prompt adapter for text-to-image diffusion models. In
+\emph{arXiv preprint arXiv:2308.06721}.
+\end{thebibliography}
+
+\end{document}

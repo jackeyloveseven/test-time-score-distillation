@@ -1,0 +1,193 @@
+% Supplementary material for the AAAI working draft.
+\documentclass[10pt,letterpaper]{article}
+\usepackage[letterpaper,margin=0.78in]{geometry}
+\usepackage{times}
+\usepackage{amsmath,amssymb,booktabs,graphicx,url}
+\usepackage[hidelinks]{hyperref}
+\title{Supplementary Material for\\Goal, Carrier, and Flow}
+\author{Anonymous Authors}
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+This supplement gives the complete formal protocol, additional field
+conditioning results, and the online image-reward diagnostic. The image-reward
+experiment is included as a negative alignment study. It is not an additional
+claim of the main method.
+
+\section{Formal Reproducibility Protocol}
+
+The representative formal pair uses style image `sty/27.png`, prompt `kp0`,
+seed 64, and 512 by 512 output resolution. The main and native teacher roots
+are `/mnt/local/klein9b` and `/mnt/local/klein9b-base`. We use 25 outer steps,
+five nominal inner iterations with the native dynamic schedule, start time 1000,
+AdamW with zero latent weight decay, disabled SLT, disabled warm-start AdaIN,
+and disabled final AdaIN.
+
+The score-carrier configuration is:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Argument & Value\\
+\midrule
+style gradient RMS target & $2.159326726314248\times 10^{-6}$\\
+distance weight & 0.3\\
+content weight & 0.4\\
+carrier temperature & 0.1\\
+carrier strength & 0.75\\
+carrier high-pass gain & 0\\
+carrier loss weight & 0.25\\
+optimizer & AdamW, weight decay 0\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The exact audit command is:
+
+\begin{verbatim}
+/home/ubuntu/chengyanli/flux/bin/python3 \\
+  trial/online_rl_critic/run_image_reward_grpo.py \\
+  --style-id 27 --prompt-id kp0 --seed 64 \\
+  --num-steps 25 --iters 5 --start-time 1000 \\
+  --style-mode score_carrier \\
+  --style-grad-rms-target 2.159326726314248e-06 \\
+  --latent-optimizer adamw --latent-weight-decay 0 \\
+  --dist-weight 0.3 --content-weight 0.4 \\
+  --carrier-temperature 0.1 --carrier-strength 0.75 \\
+  --carrier-highpass-gain 0 --carrier-loss-weight 0.25 \\
+  --disable-slt --adain-alpha 0 --disable-final-adain \\
+  --disable-grpo \\
+  --out-prefix audit_formal_score_carrier_s27_kp0_seed64
+\end{verbatim}
+
+The unified evaluator uses one manifest for every row and records the CSD,
+CLIP-T, DINO, VGG Gram, and layout-leakage checkpoint hashes. The strict audit
+obtains CSD 0.689619, matching the historical formal result around 0.688.
+
+\section{Field Conditioning Ablation}
+
+The optional field student uses either a style-ID embedding or a deterministic
+reference image code. The image code is formed from the mean and standard
+deviation of flattened VAE tokens. The representative field results are:
+
+\begin{table}[h]
+\centering
+\caption{Reference conditioning field ablation.}
+\begin{tabular}{lrrrr}
+\toprule
+Condition & Scale & MSE & Cosine & Val. MSE\\
+\midrule
+Style ID & 0.25 & 0.0000976 & 0.4486 & 0.000223\\
+Image code & 0.25 & \textbf{0.0000961} & \textbf{0.4988} & 0.000264\\
+\midrule
+Style ID holdout & 0.10 & 0.0001211 & \textbf{0.3164} & --\\
+Image code holdout & 0.25 & \textbf{0.0001206} & 0.3094 & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The image code is a viable real-reference condition, but the holdout result is
+not a universal win. The paper therefore treats the code path as a principled
+conditioning interface and leaves stronger encoders and larger reference
+families as future work.
+
+\section{Online Image Reward Diagnostic}
+
+\subsection{What Was Tested}
+
+The trial freezes a CSD style model and uses it to score candidate VAE decodes.
+For one fixed pre-action latent and three update scales
+$a\in\{0.5,1.0,1.5\}$, the candidate reward is:
+
+\begin{equation}
+ r_t(a)=10\left[\operatorname{CSD}(D(\operatorname{VAE}(z_t+a\Delta z)),x_s)
+ -\operatorname{CSD}(D(\operatorname{VAE}(z_t)),x_s)\right]
+ +0.1r_{\mathrm{native}}(a).
+\end{equation}
+
+The CSD model is frozen and receives no gradient. The score is computed on a
+noisy intermediate latent, not on the final sampled image.
+
+\subsection{Formal Results}
+
+All rows below use the exact formal score-carrier protocol above and the same
+reference, prompt, seed, evaluator, and initial noise.
+
+\begin{table}[h]
+\centering
+\caption{Formal online image-reward diagnostic.}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+\midrule
+Baseline & \textbf{0.689619} & 0.337495 & 0.074046 & 2.390120 & \textbf{0.280550}\\
+GRPO, every stage & 0.644513 & 0.332246 & 0.066161 & 2.330238 & 0.308398\\
+Local reward oracle & 0.681706 & 0.341500 & 0.067942 & \textbf{2.270237} & 0.298368\\
+GRPO, late only & 0.683222 & \textbf{0.354927} & \textbf{0.074363} & 2.280977 & 0.304994\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The late-only schedule activates candidate selection after outer fraction 0.5.
+It avoids most early noisy-state damage and improves several auxiliary
+metrics, but remains slightly below the formal CSD baseline. The local reward
+oracle is also below baseline CSD.
+
+\subsection{Why This Is Not a Best-of-N Contradiction}
+
+The free-lunch argument for best-of-$N$ assumes that all $N$ candidates are
+completed final trajectories and that selection uses the same final objective
+reported in evaluation. The trial does neither. It performs greedy one-step
+selection:
+
+\begin{equation}
+ a_t^\star=\arg\max_a r_t(a),
+ \qquad
+ r_t(a)=\operatorname{CSD}(\text{noisy intermediate decode}).
+\end{equation}
+
+The final objective is instead:
+
+\begin{equation}
+ J(a_t)=\operatorname{CSD}(\text{final decode after all future steps}).
+\end{equation}
+
+In general, $\arg\max_a r_t(a)$ is not $\arg\max_a J(a_t)$. The current
+reward can prefer an update that looks more stylistic before later denoising,
+but that changes the state in a way that harms the future score-carrier
+trajectory. Moreover, the implemented reward includes native shaping and is
+therefore not a pure final-CSD oracle.
+
+A true best-of-$N$ supplementary oracle would fork complete remaining
+trajectories from one state, finish every branch with the original
+score-carrier sampler, decode the final images, and select the final CSD maximum.
+That experiment is more expensive but would have the formal free-lunch property.
+The present study should therefore be named a \emph{local image-reward oracle}
+or \emph{delayed-reward alignment diagnostic}, not best-of-$N$.
+
+\section{Negative Result and Paper Boundary}
+
+The image-reward implementation successfully evaluates the formal score-carrier
+candidate loss without changing the teacher or the main source tree. Its
+negative CSD result is informative: local noisy-state CSD is not a sufficiently
+aligned value function for greedy online action selection. We do not add this
+reward to the main method. The main paper claim remains online native
+score-carrier refinement, with image-reward analysis reserved for this
+supplement.
+
+\section{Artifact Locations}
+
+All artifacts are under:
+
+\begin{verbatim}
+trial/online_rl_critic/
+\end{verbatim}
+
+The protocol audit, generated manifests, metrics, logs, and trial runner are
+documented there. Generated metrics are ignored by git, while source code and
+reproducibility documents are committed.
+
+\end{document}
