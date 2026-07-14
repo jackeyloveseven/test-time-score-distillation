@@ -1,5 +1,8 @@
 # Migration Plan
 
+Status: completed historical plan. The isolated repository now exists; do not
+repeat these copy phases. See `AGENT_HANDOFF.md` for current boundaries.
+
 This document decides what to copy from the Hyperion workspace and what to
 leave behind.
 
@@ -183,4 +186,3 @@ Before copying a file or function, answer:
 4. Does it help train or test a distilled residual predictor?
 
 If all answers are no, leave it in the old project.
-

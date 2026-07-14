@@ -1,5 +1,10 @@
 # Trial: GRPO Relative Advantage
 
+> **Status (2026-07-14): historical diagnostic.** This relative-advantage
+> variant is retained for reproducibility, not as a main-paper method. Its
+> result belongs in the supplementary negative-results discussion; protocol
+> authority lives in `PROTOCOL_AUDIT.md`.
+
 This is the second isolated trial inside `trial/online_rl_critic/`. It leaves
 the main runner and all files outside this trial unchanged.
 

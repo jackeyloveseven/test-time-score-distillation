@@ -1,5 +1,10 @@
 # Protocol Audit: The `0.68` CSD Baseline
 
+> **Status (2026-07-14): authoritative for this trial directory.** Use this
+> document to interpret the `0.68`-class baseline, reward variants, and
+> best-of-N/oracle comparisons. The other trial reports are retained as
+> historical evidence and must not override this audit.
+
 ## Finding
 
 The previous image-reward table in `IMAGE_REWARD_RESULTS.md` was not a valid
@@ -70,7 +75,7 @@ Before testing image reward, the next implementation must preserve the formal
 `score_carrier` objective and schedule. Any reward comparison must use the same
 25/5 protocol and report the original formal baseline in the same manifest.
 The initial wrapper only allowed reward candidates for `ca_only`. It has now
-been extended to evaluate the formal `score_carrier` candidate objective. No
+been extended to evaluate the formal `score_carrier` headline objective. No
 claim about image-reward gains is made because the formal comparison is still
 negative on CSD.
 

@@ -1,5 +1,8 @@
 # Klein9B Probe Notes
 
+Status: chronological experiment ledger. Use `RESULTS_CATALOG.md` for current
+paper numbers and `PROJECT_STATE.md` for decisions.
+
 ## 当前状态
 
 `scripts/probe_klein9b_residuals.py` 已支持三类路径：

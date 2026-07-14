@@ -1,5 +1,10 @@
 # Trial: Online Critic for Real-Time Gradient Stages
 
+> **Status (2026-07-14): historical diagnostic.** This trial is not the
+> headline method. Keep it as supplementary evidence that local online reward
+> shaping did not improve the audited GoalCarrier baseline. Use
+> `PROTOCOL_AUDIT.md` for the authoritative metric and protocol interpretation.
+
 This is an isolated, deliberately experimental trial. It must not modify any
 file outside this directory. The main method and main runner remain untouched.
 

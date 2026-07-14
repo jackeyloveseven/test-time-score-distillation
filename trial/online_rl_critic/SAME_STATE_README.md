@@ -1,5 +1,10 @@
 # Trial: Same-State GRPO Group
 
+> **Status (2026-07-14): historical diagnostic.** Same-state grouping was
+> tested as a reward-selection extension, not as the core style-transfer
+> method. The result is supplementary; `PROTOCOL_AUDIT.md` defines the valid
+> comparison boundary.
+
 This trial addresses the main flaw in the previous GRPO experiment. Instead
 of comparing rewards from different timesteps, it saves one `latents_before`
 and one raw optimizer update, constructs three hypothetical candidates from

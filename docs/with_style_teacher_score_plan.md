@@ -1,5 +1,10 @@
 # With-Style Teacher Score for One-Shot Style Distillation
 
+Current status (2026-07-14): chronological native-teacher and CA/DMD experiment
+ledger, not a handoff document. GoalCarrier/`score_carrier` is the paper method,
+`ca_only` is an ablation, and CA+DMD remains an extension. Read
+`PROJECT_STATE.md`, `AGENT_HANDOFF.md`, and `RESULTS_CATALOG.md` first.
+
 Status: replacement direction for the previous reference-K/V teacher proposal.
 
 ## 1. Decision

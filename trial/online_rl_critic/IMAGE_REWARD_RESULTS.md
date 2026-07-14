@@ -1,5 +1,9 @@
 # Image-Level Reward Trial Results
 
+> **Status (2026-07-14): supplementary negative result.** These experiments do
+> not beat the strict audited GoalCarrier result (`0.689619` CSD). Treat them as
+> a search-budget diagnostic, with protocol details in `PROTOCOL_AUDIT.md`.
+
 > **Protocol correction (2026-07-14):** The short table below is a diagnostic
 > smoke only and must not be compared with the paper's `0.68` score. It used
 > `ca_only`, 6 outer steps, 2 inner iterations, and omitted the formal

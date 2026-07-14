@@ -1,5 +1,8 @@
 # Reference Data and DMD Environment Inventory
 
+Status: infrastructure inventory. Recheck paths before use; current method and
+claim status are in `PROJECT_STATE.md`.
+
 Status: server inventory audited on 2026-07-13.
 
 This note separates usable style references from merely numerous reference
@@ -164,4 +167,3 @@ Quantity is not the bottleneck. Task purity and split validity are. The next
 data action is to build the small immutable conditioning audit, not to ingest
 the 9k identity set. The final large-scale source should contain true style or
 appearance references and explicit family information.
-

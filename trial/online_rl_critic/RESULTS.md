@@ -1,5 +1,9 @@
 # Trial Result: Online Critic
 
+> **Status (2026-07-14): supplementary negative result.** This is an archived
+> trial report, not the current project summary. Read `PROTOCOL_AUDIT.md` before
+> reusing any metric and `../../docs/RESULTS_CATALOG.md` for current evidence.
+
 ## Protocol
 
 The critic and no-critic runs use the same style `27`, prompt `kp0`, seed `64`,

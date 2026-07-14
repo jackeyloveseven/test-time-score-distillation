@@ -1,5 +1,9 @@
 # Same-State Group and Oracle Result
 
+> **Status (2026-07-14): supplementary diagnostic.** Oracle/best-of-N numbers
+> measure candidate selection under extra sampling and must not be presented as
+> a cost-free single-run gain. See `PROTOCOL_AUDIT.md` for the audited baseline.
+
 ## Protocol
 
 All rows use style `27`, prompt `kp0`, seed `64`, 512x512, 12 outer steps,

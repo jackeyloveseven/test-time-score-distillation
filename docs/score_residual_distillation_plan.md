@@ -1,5 +1,8 @@
 # Score Residual Distillation Plan
 
+Current status: optional student/amortization experiment ledger. It is not the
+main online method or current work queue. Use `PROJECT_STATE.md` first.
+
 ## Paper Framing Update (2026-07-10)
 
 The paper story is now centered on a Goal-Carrier-Flow Executor decomposition:

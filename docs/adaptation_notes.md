@@ -1,5 +1,8 @@
 # Adaptation Notes
 
+Status: historical migration record. Current ownership, method, and commands
+are in `PROJECT_STATE.md` and `AGENT_HANDOFF.md`.
+
 ## 1) 已从旧项目复制/适配的组件
 
 - 从 `custom_main_klein9b_t2i.py` 中提取并重构：

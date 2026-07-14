@@ -1,131 +1,122 @@
-# Experiment Plan and Reporting Protocol
+# Active Experiment Plan
 
-This is the current experiment plan. Earlier adapter and residual plans remain
-in the other notes for provenance; they do not replace this protocol.
+Status date: 2026-07-14. This plan begins from the existing GoalCarrier paper,
+not the earlier adapter or CA-only proposals.
 
-## Main Hypothesis
+## Objective
 
-The native reference-conditioned score identifies **what** visual change is
-desired, while a content-derived carrier determines **where** that change can
-be rendered without copying the reference layout. Online refinement should
-therefore outperform unconstrained score matching on the style/layout tradeoff
-at comparable compute.
+Test whether a native same-state image-CFG goal transported by a content-only
+carrier improves the style--content frontier over K/V replacement and
+score-only optimization.
 
-## Fixed Formal Protocol
+## P0 Matched Matrix
 
-Use one fixed protocol for every method in a comparison:
+Fixed pairs:
 
 ```text
-styles/prompts: 00/kp1, 13/kp3, 27/kp0
-seeds:          64, 65, 66
-resolution:     512 x 512
-outer steps:    25
-inner iters:    5
-start-time:     1000
-optimizer:      AdamW, latent weight decay 0
-SLT:            disabled
-warm AdaIN:     disabled
-final AdaIN:    disabled
-dist weight:    0.3
-content weight: 0.4
+00/kp1  castle on a cliff by the sea
+13/kp3  field of sunflowers at sunset
+27/kp0  panda eating bamboo
 ```
 
-Change one factor at a time. Use a fresh output prefix for each run and add a
-manifest row immediately after the image is produced.
+Seeds: `64,65,66`.
 
-## Required Methods
+Methods:
 
 ```text
-normal/content baseline
 kv_match
 score_match
-ca_only                  current main method
-score_carrier            native score plus carrier comparison
-ca_dmd                   CA plus dynamic fake-score correction
-offline full residual    optional acceleration ablation
-offline carrier student  optional acceleration ablation
+score_carrier  (GoalCarrier)
+ca_dmd         (persistent fake-score extension)
 ```
 
-The `ca_dmd` row is not complete until the fake-score backend state, replay
-behavior, and update schedule are recorded. A code path existing is not the
-same as a validated DMD experiment.
+Fixed formal settings:
+
+```text
+resolution: 512x512
+outer steps: 25
+nominal inner iterations: 5, native dynamic schedule
+start time: 1000
+optimizer: AdamW
+latent weight decay: 0
+style gradient RMS target: 2.159326726314248e-06
+distance weight: 0.3
+content weight: 0.4
+carrier temperature: 0.1
+carrier strength: 0.75
+carrier high-pass gain: 0
+carrier loss weight: 0.25
+SLT/AdaIN: disabled
+```
+
+Only method-required flags may differ. Every row must share reference, prompt,
+seed, initial noise, evaluator, and sampler configuration.
+
+## P0 Mechanism Interventions
+
+Run on the same matrix or a predeclared subset:
+
+| intervention | purpose |
+|---|---|
+| `lambda_A=0` / identity | isolate native score goal |
+| uniform affinity | test global smoothing |
+| shuffled content tokens | destroy spatial carrier correspondence |
+| reference-derived affinity | expected layout-leakage positive control |
+| temperature sweep | test locality |
+| strength sweep | style--layout Pareto curve |
 
 ## Metrics
 
-Image-level evaluator:
+Primary paired outcomes:
 
 ```text
-CSD style similarity  higher is better
-CLIP-T                higher is better
-DINO style similarity higher is better
-VGG Gram distance     lower is better
-DINO layout leakage   lower is better
+CSD style similarity      higher
+CLIP-T prompt alignment   higher
+DINO style similarity     higher
+VGG Gram distance         lower
+DINO layout leakage       lower
 ```
 
-Field-level evaluator:
+Add:
+
+- paired bootstrap 95% confidence intervals;
+- per-pair and per-seed win rates;
+- blinded human style fidelity and content preservation;
+- wall time, peak GPU memory, native forward count, latent backward count.
+
+No single automatic metric is sufficient. A claim requires the visual grid and
+at least style, prompt, and layout evidence.
+
+## CA+DMD Validity Gate
+
+Record fake-score model, optimizer, update frequency, timestep sampling,
+replay/on-policy source, persistent state path, resume behavior, and train/eval
+mode. A reset, frozen, or absent fake backend invalidates a DMD headline.
+
+## Output Contract
+
+Each run receives a unique prefix and writes:
 
 ```text
-MSE to native field
-direction cosine
-spatial neighbor coherence
-low/high-frequency energy
-one-step image effect
+image
+reference copy/path
+per-step CSV
+summary JSON
+stdout/stderr log
+manifest row
 ```
 
-Systems metrics:
+After all rows finish, create one unified matched manifest and evaluate once.
+Do not hand-average metrics from different evaluator runs.
 
-```text
-wall-clock time
-native teacher forward count
-reference-conditioned forward count
-backward count
-peak VRAM
-```
+## Submission Gate
 
-## Current Completed Evidence
+The broad empirical claim is unlocked only after:
 
-CA-only nine-run mean/std:
+1. all matched rows complete without protocol drift;
+2. GoalCarrier improves the paired style--layout frontier with uncertainty;
+3. human preference supports the automatic result;
+4. runtime/memory are reported honestly;
+5. a larger license-documented reference set confirms the direction.
 
-```text
-CSD style similarity: 0.5605 +/- 0.0662
-CLIP-T:               0.3287 +/- 0.0171
-DINO style similarity:0.0602 +/- 0.0225
-VGG Gram distance:    3.9673 +/- 1.3332
-DINO layout leakage:  0.3444 +/- 0.0363
-```
-
-Field conditioning results are documented in `AGENT_HANDOFF.md` and
-`full_paper_draft.md`. The current pooled VAE reference code is reproducible,
-but its grouped holdout result is not enough to claim universal image-level
-generalization.
-
-## Next Run Matrix
-
-For each method, produce the same nine cases:
-
-```text
-(style=00, prompt=kp1, seed=64/65/66)
-(style=13, prompt=kp3, seed=64/65/66)
-(style=27, prompt=kp0, seed=64/65/66)
-```
-
-First run `score_carrier`, then `ca_dmd`, then the carrier weight sweep. Store:
-
-```text
-agent_runs/<method>_<case>.log
-results/<method>_<case>.png
-results/<method>_manifest.csv
-results/<method>_metrics.csv
-results/<method>_metrics_summary.json
-```
-
-## Analysis Rules
-
-- Use mean and standard deviation across seeds, not the best seed.
-- Keep style/prompt pairing fixed when comparing methods.
-- Report scalar metrics with qualitative grids.
-- Separate field fidelity from final image quality.
-- Separate online compute from offline training cost.
-- Treat layout leakage and Gram distance as tradeoffs until all methods use the
-  same preprocessing and evaluator checkpoints.
-- Mark hypotheses as hypotheses until causal layer probes are complete.
+Until then, the existing three-pair result is a controlled mechanism study.

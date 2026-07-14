@@ -1,5 +1,9 @@
 # Carrier-Anchored Score Residual
 
+Status: current implementation note, reviewed 2026-07-14. GoalCarrier/
+`score_carrier` is paper-facing; `PROJECT_STATE.md` overrides older conditional
+framing in this chronological note.
+
 ## Method
 
 The method separates the reference-conditioned edit into two roles:

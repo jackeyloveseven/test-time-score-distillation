@@ -1,49 +1,61 @@
 # Current TODO
 
-The authoritative status and command details are in
-`docs/AGENT_HANDOFF.md`. This file is intentionally short enough to use as a
-working queue.
+Status date: 2026-07-14. `PROJECT_STATE.md` defines current claims.
 
-## Done
+## Completed
 
-- Isolated all implementation under `style_residual_distill_20260709`.
-- Implemented native same-state with-style score/velocity residuals.
-- Implemented score-to-velocity conversion for FLUX.2 rectified flow.
-- Implemented content-affinity carrier transport.
-- Added online `ca_only`, `score_carrier`, and `ca_dmd` execution paths.
-- Added optional offline carrier-anchored image-code student.
-- Added AdamW latent optimizer support with explicit weight decay.
-- Added regression tests; last verified result: `53 tests, OK`.
-- Completed online CA-only 3-reference x 3-seed validation.
-- Updated paper draft, story blueprint, README, and handoff documentation.
+- Isolated the project from the read-only Hyperion source.
+- Implemented same-state native image-CFG residuals and exact FLUX.2 conversion.
+- Implemented reference-independent carrier transport.
+- Implemented score match, GoalCarrier, CA-only, CA+DMD, and K/V modes.
+- Added optional real-image-code student and image sampling.
+- Added Adam/AdamW latent optimization and gradient audits.
+- Verified 53 tests on the H200 server.
+- Reproduced 0.689619 strict GoalCarrier CSD on the formal pair.
+- Completed first three-pair GoalCarrier vs. K/V comparison.
+- Completed CA-only 3-reference x 3-seed stability diagnostic.
+- Completed negative online CSD reward/GRPO protocol audit.
+- Rewrote the AAAI paper to 7 technical + 2 reference pages and tracked figures.
+- Created a complete Mac Git mirror and archived old local patch folders.
 
-## P0: Next Experiments
+## P0: Evidence Completion
 
-1. Run nine matched `score_carrier` samples with the same protocol as CA-only.
-2. Run nine matched `ca_dmd` samples with persistent fake-score state.
-3. Sweep `carrier_loss_weight` while fixing all other flags.
-4. Evaluate every method using the same manifest schema and metric models.
-5. Assemble a qualitative grid before making an image-quality claim.
+1. Run K/V, score match, and GoalCarrier for all 3 pairs x seeds 64,65,66.
+2. Run persistent CA+DMD on the exact same matrix.
+3. Report paired bootstrap confidence intervals and per-pair win rates.
+4. Run blinded human style-fidelity/content-preservation preference.
+5. Measure wall time, peak memory, native forwards, and latent backwards.
+6. Add a larger license-documented reference set.
 
-## P1: Method Validation
+## P1: Mechanism
 
-- Verify fake-score optimizer, timestep sampling, replay, save, and resume.
-- Compare CA-only, score-carrier, score-match, K/V match, and CA+DMD at equal
-  compute budgets.
-- Add explicit teacher/reference forward counts and wall-clock measurements.
-- Add exact unseen-reference and unseen-style-family splits.
+- Identity carrier (`lambda_A=0`).
+- Uniform affinity.
+- Shuffled content tokens.
+- Reference-derived affinity as an expected leakage-positive control.
+- Carrier temperature/strength Pareto sweep.
+- Optional multiscale or sparse content-only carrier.
 
-## P2: Paper Strengthening
+## P1: Submission
 
-- Test a stronger frozen image encoder against the pooled VAE mean/std code.
-- Run layer probes for early goal, spatial carrier, and late flow executor.
-- Report field cosine, spatial coherence, frequency energy, and layout leakage.
-- Keep the DMD claim conditional until the dynamic fake-score experiment passes.
+- Obtain and apply official `aaai2026.sty`.
+- Recompile and preserve the 7-page technical budget.
+- Add final multi-seed and human tables/figures.
+- Complete dataset licenses, compute statement, and release manifest.
+
+## P2: Conditional Work
+
+- Strengthen the frozen image encoder only for optional amortization.
+- Run early/carrier/late layer probes only if layer-emergence returns as a paper
+  claim.
+- Run true final-trajectory best-of-N only as a supplementary compute study.
 
 ## Guardrails
 
-- Never edit `/home/ubuntu/chengyanli/items/save/attention_20260426_090948`.
-- Do not call offline student training a requirement of the main method.
-- Do not compare runs with different seeds, prompts, timesteps, or evaluator
-  caches without labeling the comparison.
-- Do not commit generated checkpoints or image dumps.
+- Never edit the original Hyperion directory.
+- Never call K/V replacement a native teacher.
+- Never call CA-only CA+DMD.
+- Never make the optional student a requirement.
+- Never compare unmatched seeds/prompts/checkpoints without labeling it.
+- Never call local noisy-state reward final-image best-of-N.
+- Never force-add large result trees or checkpoints.

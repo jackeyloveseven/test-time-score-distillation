@@ -1,5 +1,10 @@
 # Paper Story Blueprint: Goal-Carried Image Score Distillation
 
+Current status (2026-07-14): motivation and causal-probe blueprint. The active
+method and claim boundary are defined by `PROJECT_STATE.md` and
+`../AAAI/main.tex`. GoalCarrier/`score_carrier` is the main method; passages
+that call CA-only the main method are historical.
+
 Status: second-paper research blueprint, updated 2026-07-10.
 
 This document defines the paper story, method boundary, reproducibility

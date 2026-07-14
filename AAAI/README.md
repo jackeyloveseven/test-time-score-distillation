@@ -1,5 +1,10 @@
 # AAAI Paper Draft
 
+> **Working split (2026-07-14):** the Mac mirror is for reading and editing
+> paper/documentation sources only. Compile PDFs, run validation scripts, and
+> update experiment-backed claims on `ubuntu-107`, which is the operational
+> source of truth.
+
 This directory contains the submission draft for the second paper:
 
 **From Visual Goal to Denoising Flow: Carrier-Anchored Image CFG for

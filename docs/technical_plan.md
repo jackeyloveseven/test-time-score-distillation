@@ -1,5 +1,8 @@
 # Technical Plan
 
+Status: historical initial design. It does not define the current GoalCarrier
+loss or paper claim. See `PROJECT_STATE.md` and `../AAAI/main.tex`.
+
 ## 1. Main Problem Statement
 
 Reference-based style transfer can be treated as conditional field steering.
@@ -157,4 +160,3 @@ simple student clearly fails.
    lightweight student.
 4. Demonstrate faster style transfer at comparable CSD/CLIP-T and lower
    forward/backward cost.
-

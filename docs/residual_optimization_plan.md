@@ -1,5 +1,8 @@
 # Residual Optimization Plan
 
+Status: historical residual/adapter exploration. GoalCarrier/`score_carrier` is
+current; use `experiment_plan.md` for active experiments.
+
 This document defines the first optimization track for the second paper:
 turning raw style guidance into a style-specific velocity residual.
 
@@ -194,4 +197,3 @@ The next implementation phase is justified if:
 Do not begin student training until the field diagnostics show that the teacher
 residual is meaningful. Distillation should train against a validated residual,
 not against a raw heuristic.
-

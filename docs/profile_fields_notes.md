@@ -1,5 +1,8 @@
 # Residual Field Profiling Notes
 
+Status: historical field-profiling notes. They are provenance and do not
+override the current GoalCarrier protocol.
+
 ## 1) 脚本目的
 
 `scripts/profile_residual_fields.py` 用于在不启动完整采样实验的前提下，快速得到残差场（residual field）诊断指标，判断第二篇方法中的核心问题：

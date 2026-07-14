@@ -1,5 +1,8 @@
 # Klein9B Single-Sample Residual Probe Plan
 
+Status: historical and future-probe design. Layer emergence is not a current
+paper finding. Run these probes only if that claim is reintroduced.
+
 This plan defines the next step after `profile_residual_fields.py --dry-run`
 passes in the `diffsynth` and `yzh-dmd` environments.
 
@@ -250,4 +253,3 @@ The smoke probe is considered useful if:
   around paired normal/styled forwards.
 - Prompt conditioning: Hyperion teacher in old T2I sometimes used null embeds
   for the style loss. Log this choice rather than hiding it.
-

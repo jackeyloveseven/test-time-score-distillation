@@ -1,5 +1,9 @@
 # Formal With-Style Teacher Comparison
 
+Status: current evidence ledger, reviewed 2026-07-14. GoalCarrier
+(`score_carrier`) is the paper-facing method. The three-pair table has one seed
+per pair and is not matched multi-seed dominance. See `RESULTS_CATALOG.md`.
+
 This note records the native with-style score teacher and the first
 carrier-anchored score comparison for the second paper. All code, manifests,
 logs, and generated outputs belong to this repository.

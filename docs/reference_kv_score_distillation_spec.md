@@ -1,5 +1,9 @@
 # Reference-KV Conditioned Velocity Distillation Specification
 
+Current status: historical K/V/student specification retained for provenance.
+K/V is a baseline, not the paper method. Use `PROJECT_STATE.md` and current
+source code for active contracts.
+
 Status: implementation specification for the second-paper main method.
 
 ## Decision

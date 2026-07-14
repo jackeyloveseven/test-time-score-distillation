@@ -1,24 +1,23 @@
 # Environment and Reproducibility
 
-This file records the environments actually used by the current repository.
-For the complete takeover procedure, read `docs/AGENT_HANDOFF.md` first.
+Status date: 2026-07-14. Formal work runs on `ubuntu-107`; the Mac is for
+documentation only.
 
-## Host and Repository
+## Server
 
 ```text
 host: ubuntu-107
+OS: Ubuntu, Linux 6.8.0-71-generic, x86_64
 repo: /home/ubuntu/chengyanli/items/style_residual_distill_20260709
-original read-only reference:
-  /home/ubuntu/chengyanli/items/save/attention_20260426_090948
+runtime: /home/ubuntu/chengyanli/flux/bin/python3
+Python: 3.12.12
+PyTorch: 2.8.0+cu128
+CUDA runtime: 12.8
+GPU: NVIDIA H200, 143771 MiB
+driver: 590.48.01
 ```
 
-The main benchmark uses the bundled project runtime:
-
-```text
-/home/ubuntu/chengyanli/flux/bin/python3
-```
-
-## Model and Asset Paths
+Models and references:
 
 ```text
 main model:     /mnt/local/klein9b
@@ -26,26 +25,13 @@ native teacher: /mnt/local/klein9b-base
 style images:   /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
 ```
 
-The evaluator also resolves local model caches for CSD, OpenCLIP, DINOv2, and
-VGG19. The exact resolved paths and hashes are recorded in each evaluator
-summary JSON. Do not replace a cache halfway through a comparison.
-
-## Alternative Environments
-
-The following environments were checked for import-level compatibility:
+The original source root is read-only:
 
 ```text
-/home/ubuntu/miniconda3/envs/yzh-dmd/bin/python
-/home/ubuntu/miniconda3/envs/diffsynth/bin/python
+/home/ubuntu/chengyanli/items/save/attention_20260426_090948
 ```
 
-The older `diffsynth` sanity check reported `torch==2.11.0+cu130`; the older
-`yzh-dmd` check reported `torch==2.10.0+cu128`. These are compatibility notes,
-not permission to mix runtimes in one experiment. Use `flux/bin/python3` for
-the current formal protocol unless a new comparison explicitly records the
-environment.
-
-## Startup Checks
+## Verified Startup
 
 ```bash
 cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709
@@ -55,31 +41,57 @@ cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709
   scripts.test_tpami_with_style_teacher
 ```
 
-If a runtime import fails, check the interpreter first, then the model paths,
-then CUDA visibility. Do not copy dependencies into the original source tree.
+Last verified: `53 tests, OK` on 2026-07-14.
 
-## Reproducibility Contract
+## Alternative Server Environments
 
-Record all of the following in a manifest or JSON summary:
-
-```text
-model roots
-style root and exact reference path
-prompt text and prompt ID
-seed, resolution, number of steps, start time
-inner iterations and optimizer
-all style/carrier/DMD weights
-fake-score backend and replay-state path, if applicable
-metric model cache paths and hashes
-```
-
-The main CA-only validation uses:
+These passed earlier import-level checks only:
 
 ```text
-styles/prompts: 00/kp1, 13/kp3, 27/kp0
-seeds:          64, 65, 66
-steps/iters:    25 / 5
-start-time:     1000
-optimizer:      AdamW, weight decay 0
-SLT/AdaIN:      disabled
+/home/ubuntu/miniconda3/envs/yzh-dmd/bin/python
+/home/ubuntu/miniconda3/envs/diffsynth/bin/python
 ```
+
+Do not mix runtimes inside a matched comparison. The formal default is
+`flux/bin/python3`.
+
+## Mac Documentation Environment
+
+```text
+macOS: 26.5.1
+architecture: arm64
+Git: 2.50.1
+local docs path:
+  /Users/jackeylove/Documents/New project/style_residual_distill_20260709
+```
+
+The Mac currently has no `pdflatex` or `bibtex` and has no CUDA target. Do not
+install project runtimes or copy the result tree merely for handoff. Read and
+edit Markdown/LaTeX there; run tests, experiments, evaluation, and compilation
+on `ubuntu-107`.
+
+## Evaluators
+
+The evaluator resolves local server caches for CSD, OpenCLIP, DINOv2, and
+VGG19. Every summary JSON records exact resolved paths, SHA-256 values, metric
+direction, and preprocessing. A comparison is invalid if a cache or preprocess
+changes between rows.
+
+## Reproducibility Record
+
+Every run must record:
+
+```text
+code commit and Python environment
+model roots and model-loading/offload settings
+reference path, prompt text, IDs, seed, and resolution
+outer steps, exact timestep, scheduler sigma, and start time
+inner iteration schedule and latent optimizer
+all goal, carrier, content, distance, and DMD weights
+fake-score optimizer/replay/state path when using CA+DMD
+metric caches, hashes, and preprocessing
+unique output prefix and manifest path
+```
+
+The main formal setting is documented in `formal25_teacher_comparison.md` and
+`../AAAI/main.tex`.

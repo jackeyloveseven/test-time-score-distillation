@@ -1,5 +1,9 @@
 # GRPO-Style Trial Result
 
+> **Status (2026-07-14): supplementary negative result.** Do not compare these
+> values to the headline number without the protocol distinctions documented
+> in `PROTOCOL_AUDIT.md`.
+
 ## Protocol
 
 Both runs use style `27`, prompt `kp0`, seed `64`, 512x512, 12 outer steps,

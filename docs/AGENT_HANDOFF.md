@@ -1,356 +1,282 @@
-# Agent Handoff: Style Residual Distillation
+# Agent Handoff: GoalCarrier Style Transfer
 
-This is the authoritative takeover document for a new coding/research agent.
-It describes what is implemented, what is measured, what is still only a
-hypothesis, and how to run the repository without touching the original
-Hyperion source.
+Status date: 2026-07-14. Read `PROJECT_STATE.md` first. This document explains
+how to take over the project without hidden context.
 
 ## 1. Mission
 
-The project is the second paper after Hyperion. The target problem is
-image-conditioned style transfer on Klein9B / FLUX.2: use a real reference
-image as a visual instruction while preserving the content prompt's objects
-and layout.
-
-The paper's current thesis is:
+Build and validate a training-free reference-style transfer method on Klein9B
+that treats an image as an instruction. The current paper method, GoalCarrier,
+separates:
 
 ```text
-editing is not progressively revealing the reference layer by layer
-the native score forms the style goal early
-the content state supplies the spatial carrier
-late MM-DiT computation translates the goal into executable flow
+native score contrast -> visual goal
+content-only affinity -> spatial carrier
+rectified-flow target -> execution
 ```
 
-The main method is online carrier-anchored native score refinement. It is
-performed during sampling for the current reference and trajectory. It does
-not require training a global adapter or student before inference.
+The reference decides what appearance change is requested. The current sample
+decides where the change is transported. The sampler executes the result.
 
-## 2. Non-Negotiable Boundaries
-
-### Repository
+## 2. Locations and Ownership
 
 ```text
-repo = /home/ubuntu/chengyanli/items/style_residual_distill_20260709
-host = ubuntu-107
+server:      ubuntu-107
+server repo: /home/ubuntu/chengyanli/items/style_residual_distill_20260709
+Mac clone:   /Users/jackeylove/Documents/New project/style_residual_distill_20260709
 ```
 
-All code and documentation changes go in `repo`. Before editing:
+The server repository is authoritative for code, experiments, compilation, and
+commits. The Mac clone is for reading and editing documentation only. Do not
+prepare a local CUDA or LaTeX runtime.
 
-```bash
-ssh ubuntu-107 git -C /home/ubuntu/chengyanli/items/style_residual_distill_20260709 status --short
-```
-
-Never reset or clean unrelated user changes. Generated results are ignored by
-`.gitignore`; do not force-add checkpoints, images, or large field dumps.
-
-### Original source
+Original Hyperion source, read-only:
 
 ```text
 /home/ubuntu/chengyanli/items/save/attention_20260426_090948
 ```
 
-This is read-only reference material. In particular, do not edit its
-`custom_main_klein9b.py`, copy files back into it, or use destructive Git/file
-commands there. Style references are read from its `sty/` directory only.
+Never edit it, copy adapted files back into it, or run destructive cleanup
+there. Reading `sty/` references is allowed.
 
-### Runtime and models
+## 3. Source-of-Truth Order
 
-The fixed runtime for current benchmark commands is:
+1. current source code and tests;
+2. `docs/PROJECT_STATE.md`;
+3. `AAAI/main.tex` for paper prose;
+4. `docs/RESULTS_CATALOG.md` and canonical result summaries;
+5. this handoff;
+6. historical plans and experiment ledgers.
+
+Old notes are provenance, not authority.
+
+## 4. Environments
+
+Formal runtime:
 
 ```text
 /home/ubuntu/chengyanli/flux/bin/python3
+Python 3.12.12
+PyTorch 2.8.0+cu128
+GPU: NVIDIA H200, 143771 MiB
 ```
 
-The default model paths used by the runner are:
+Models and references:
 
 ```text
-main model:    /mnt/local/klein9b
-native teacher:/mnt/local/klein9b-base
-style root:    /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
+main model:     /mnt/local/klein9b
+native teacher: /mnt/local/klein9b-base
+style root:     /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
 ```
 
-The alternate environment `/home/ubuntu/miniconda3/envs/yzh-dmd/bin/python`
-has also passed the lightweight runtime import check. Do not switch Python
-environments in the middle of a matched benchmark.
+The Mac has no CUDA and currently has no `pdflatex`/`bibtex`; use it for source,
+paper editing, and lightweight tests only. Compile and run formal experiments
+on `ubuntu-107`.
 
-## 3. What Is Actually Implemented
+## 5. Current Method Modes
 
-### Online path: main method
-
-`scripts/run_tpami_with_style_teacher.py` runs the native teacher on the exact
-same latent and timestep with and without the reference. The difference is a
-model-native style field. The online loop can use these modes:
-
-| mode | interpretation | paper status |
+| mode | implementation meaning | status |
 |---|---|---|
-| `ca_only` | native score goal rendered through content carrier | main validated method |
-| `score_carrier` | score matching plus explicit carrier objective | promising comparison |
-| `ca_dmd` | CA term plus fake-score distribution correction | implementation path; needs formal validation |
-| `score_match` | native with-style score matching without carrier | ablation |
-| `kv_match` | reference K/V replacement baseline | legacy baseline |
-| `carrier_score` | older carrier-score variant | exploratory compatibility mode |
+| `score_carrier` | native score match + explicit carrier pseudo-target | **paper main method** |
+| `score_match` | native score match without carrier | ablation |
+| `kv_match` | reference K/V replacement | baseline |
+| `ca_only` | detached native image-CFG pseudo-guidance | online ablation |
+| `ca_dmd` | CA plus dynamic fake-score correction | extension; not validated as a win |
+| `carrier_score` | older detached transport variant | exploratory |
 
-The exact implementation is the source of truth. Use `--help` after any CLI
-change and inspect `src/ca_dmd_backend.py` before claiming DMD.
+The optional student predicts a teacher field for repeated deployment. It is
+not required by GoalCarrier and must not be described as an adapter dependency.
 
-### Optional offline path
-
-`probe_native_edit_teacher.py` dumps native fields. The optional student path
-then trains `student(z_t,t,p,c_s)` to approximate the field, where `c_s` is a
-deterministic pooled FLUX VAE reference code. This path is for amortized
-latency, not required for the main paper method.
-
-Supported conditioning:
+## 6. Implementation Map
 
 ```text
-style_id   memorization/control ablation
-image_code real-reference conditioning path
+src/native_edit_teacher.py
+  prepares frozen reference condition and enforces same-state branch metadata
+
+src/flux2_score.py
+  exact scheduler sigma lookup; velocity, score, epsilon, and x0 conversion;
+  detached pseudo-target construction
+
+src/carrier_score.py
+  normalized content-token affinity and reference-independent transport
+
+src/style_objectives.py
+  score matching and CA/CA+DMD pseudo-guidance contracts
+
+src/ca_dmd_backend.py
+  fake-score backend, conditioning, optimizer, replay, and persistent state
+
+scripts/run_tpami_with_style_teacher.py
+  formal sampler, latent optimizer, matched modes, logging, and safety checks
+
+scripts/evaluate_matched_teacher_outputs.py
+  CSD, CLIP-T, DINO style, VGG Gram, and DINO layout leakage
+
+scripts/probe_native_edit_teacher.py
+scripts/train_score_residual_student.py
+scripts/sample_student_images.py
+  optional field dump/student path
+
+trial/online_rl_critic/
+  isolated reward, GRPO, same-state, and protocol-audit diagnostics
 ```
 
-Supported prediction modes:
+## 7. Mathematical Contract
+
+For a shared current state `(z_t,t,p)`:
 
 ```text
-residual          predicts full field
-hard_delta        predicts correction added to hard_scfg
-carrier_anchored  predicts native goal, then content affinity renders it
+Delta v_native = v_with_reference - v_without_reference
+Delta s_native = -((1 - sigma) / sigma) Delta v_native
 ```
 
-## 4. Mathematical Contract
+The implementation must remove the shared `-z_t/sigma` term before applying
+detach boundaries. In `score_carrier`, gradients enter through the base branch
+`v_0(z_t)` and its clean prediction. The styled branch, affinity, transported
+goal, and pseudo-target are detached.
 
-Let `z_t` be the exact current latent, `t` the exact timestep, `p` the content
-prompt, and `x_s` the reference image. The native velocity residual is:
+Content carrier:
 
 ```text
-Delta v_native = v_with_reference(z_t,t,p,x_s)
-                 - v_without_reference(z_t,t,p)
+A_t = softmax(normalize(c_t) normalize(c_t)^T / tau)
+T_A(g) = g + lambda_A (A_t g - g)
 ```
 
-The score-space residual uses the FLUX2 conversion implemented in
-`src/flux2_score.py`:
+The reference must not enter `A_t`. For `0 <= lambda_A <= 1`, this transport is
+a convex token mixer and does not increase the maximum token L2 norm.
+
+For CA+DMD:
 
 ```text
-Delta s = -((1 - sigma) / sigma) Delta v_native
+g_total = lambda_A T_A(g_native)
+        + lambda_DM (score_style - score_fake_phi)
 ```
 
-The branch pair must share the same latent, timestep, prompt, scheduler state,
-and image IDs. If they do not, the difference is not a valid score/velocity
-residual.
+`phi` must persist and be refreshed on current fake samples. A reset or frozen
+fake model is not a formal DMD experiment.
 
-The content carrier is a detached token affinity built from the current content
-latent:
-
-```text
-A(z_t) = softmax(normalize(z_t) normalize(z_t)^T / tau)
-g_rendered = g_goal + lambda_CA (A(z_t) g_goal - g_goal)
-```
-
-The reference enters the goal branch, not the carrier affinity. This is the
-mechanism intended to preserve content layout and avoid copying the reference
-composition.
-
-For rectified flow, score targets must be converted back to velocity before
-the scheduler update. Do not add a score tensor directly to a velocity update.
-
-## 5. Verified Commands
-
-### Regression tests
+## 8. Verify Before Work
 
 ```bash
+ssh ubuntu-107
 cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709
+git status --short
 /home/ubuntu/chengyanli/flux/bin/python3 -m py_compile src/*.py scripts/*.py
 /home/ubuntu/chengyanli/flux/bin/python3 -m unittest -q \
   scripts.test_score_residual_student \
   scripts.test_tpami_with_style_teacher
 ```
 
-Last verified result: `53 tests, OK`.
+Expected regression result as of 2026-07-14: `53 tests, OK`.
 
-### Main online smoke
+## 9. Formal GoalCarrier Command
 
 ```bash
 /home/ubuntu/chengyanli/flux/bin/python3 \
   scripts/run_tpami_with_style_teacher.py \
   --style-id 27 --prompt-id kp0 --seed 64 \
   --num-steps 25 --iters 5 --start-time 1000 \
-  --style-mode ca_only \
+  --style-mode score_carrier \
+  --style-grad-rms-target 2.159326726314248e-06 \
   --latent-optimizer adamw --latent-weight-decay 0 \
+  --dist-weight 0.3 --content-weight 0.4 \
+  --carrier-temperature 0.1 --carrier-strength 0.75 \
+  --carrier-highpass-gain 0 --carrier-loss-weight 0.25 \
   --disable-slt --adain-alpha 0 --disable-final-adain \
-  --out-prefix online_ca_only_formal25_s27_kp0_seed64
+  --out-prefix formal25_reproduce_score_carrier_s27_kp0_seed64
 ```
 
-For quick debugging, use `--num-steps 12 --iters 1` and a distinct
-`--out-prefix`. Do not overwrite a prior run when diagnosing a change.
+Use a unique prefix. Do not overwrite an evidence run.
 
-### Metric evaluation
+## 10. Evaluation Contract
 
-The evaluator consumes a manifest with columns `method`, `output_path`,
-`style_path`, `prompt`, `style_id`, `prompt_id`, and `seed`:
+The unified manifest columns are:
+
+```text
+method, output_path, style_path, prompt, style_id, prompt_id, seed
+```
+
+Example:
 
 ```bash
 /home/ubuntu/chengyanli/flux/bin/python3 \
   scripts/evaluate_matched_teacher_outputs.py \
-  --manifest-csv results/online25_ca_only_multiseed_manifest.csv \
-  --out-csv results/online25_ca_only_multiseed_metrics.csv \
-  --summary-json results/online25_ca_only_multiseed_metrics_summary.json \
+  --manifest-csv results/formal25_multi_matched_manifest.csv \
+  --out-csv results/formal25_multi_matched_metrics.csv \
+  --summary-json results/formal25_multi_matched_metrics_summary.json \
   --device cuda
 ```
 
-Reported metrics are CSD style similarity, CLIP-T, DINO style similarity,
-VGG Gram distance, and DINO layout leakage. Check directionality in the JSON
-summary; layout leakage and Gram distance are lower-is-better.
+Never mix evaluator checkpoints or preprocessing in one comparison. Summary
+JSON files store resolved paths and SHA-256 values.
 
-### Native field dump
+## 11. Current Evidence
 
-```bash
-/home/ubuntu/chengyanli/flux/bin/python3 \
-  scripts/probe_native_edit_teacher.py \
-  --style-ids 00,13,27 --prompt-ids kp0,kp1,kp2,kp3,kp4 \
-  --seed 65 --height 512 --width 512 --num-steps 12 \
-  --dump-fields --dump-latents \
-  --output-prefix results/native_carrier_goal_s65
-```
+Read `RESULTS_CATALOG.md` for all numbers. The bounded conclusions are:
 
-Then build a manifest with `scripts/build_score_residual_manifest.py` and train
-the optional image-code student:
+- native same-state score gives a stronger style signal than the K/V baseline
+  on the controlled three-pair comparison;
+- carrier anchoring improves CSD, Gram, and leakage over score-only on the
+  representative pair;
+- the three-pair mean has a Gram/layout trade-off and only one seed per pair;
+- CA-only has a separate 3x3 stability diagnostic;
+- optional image-code conditioning works at field level but does not yet prove
+  unseen-style superiority;
+- intermediate CSD reward is negative and stays supplementary.
 
-```bash
-/home/ubuntu/chengyanli/flux/bin/python3 \
-  scripts/train_score_residual_student.py \
-  --manifest results/score_residual_manifest_native_carrier_s65.jsonl \
-  --out-dir results/native_image_code_student_s65 \
-  --conditioning-mode image_code \
-  --prediction-mode carrier_anchored \
-  --carrier-temperature 0.15 --carrier-strength 1.0 \
-  --epochs 120 --batch-size 8 --model-type token_mlp \
-  --device cuda
-```
+## 12. Paper Workflow
 
-This student command is optional and is not needed to reproduce the online
-main method.
-
-## 6. Current Evidence
-
-### Online CA-only multi-seed
-
-Protocol: styles/prompts `00/kp1`, `13/kp3`, `27/kp0`; seeds `64,65,66`;
-25 outer steps; 5 inner iterations; `start-time=1000`; AdamW; weight decay
-zero; SLT and AdaIN disabled.
+Paper source:
 
 ```text
-CSD style similarity: 0.5605 +/- 0.0662
-CLIP-T:               0.3287 +/- 0.0171
-DINO style similarity:0.0602 +/- 0.0225
-VGG Gram distance:    3.9673 +/- 1.3332
-DINO layout leakage: 0.3444 +/- 0.0363
+AAAI/main.tex
+AAAI/references.bib
+AAAI/reproducibility.tex
+AAAI/supplement.tex
 ```
 
-Artifact files:
+Compile from the server repository root using `AAAI/BUILD.md`. The current
+target is 7 technical + 2 reference + 1 checklist pages, plus a separate
+3-page supplement. `AAAI/main.tex` is the only prose source; do not maintain a
+second full paper in Markdown.
 
-```text
-results/online25_ca_only_multiseed_manifest.csv
-results/online25_ca_only_multiseed_metrics.csv
-results/online25_ca_only_multiseed_metrics_summary.json
-```
+## 13. Next-Agent Priority
 
-### Native field / offline student
+P0:
 
-The current field collection uses 3 references, 5 prompts, 12 scheduler states,
-and seed 65. The image-code field has latent shape `[1,1024,128]` and pooled
-reference code shape `[256]`.
+1. matched 3-reference x 3-seed runs for K/V, score match, and GoalCarrier;
+2. matched persistent CA+DMD under the same protocol;
+3. carrier identity/shuffle/uniform/reference-affinity interventions;
+4. human preference and runtime/peak-memory measurement;
+5. larger license-documented references.
 
-Random matched field sweep at scale `0.25`:
+P1:
 
-```text
-style-ID carrier:  MSE 0.0000976, cosine 0.4486
-image-code carrier:MSE 0.0000961, cosine 0.4988
-```
+- carrier temperature/strength Pareto sweep;
+- CSD calibration and confidence intervals;
+- official AAAI style conversion;
+- layer probes only if the layer-emergence claim returns to the paper.
 
-Grouped holdout with all style 27 rows excluded:
+## 14. Common Failure Modes
 
-```text
-style-ID carrier:  MSE 0.0001211, cosine 0.3164
-image-code carrier:MSE 0.0001206, cosine 0.3094
-```
+- Different latent/timestep branches invalidate the score residual.
+- Adding score tensors directly to a velocity scheduler breaks scale.
+- Detaching two full scores before shared-state cancellation creates an
+  unintended identity gradient.
+- A reference-aware carrier reintroduces layout copying.
+- `start-time=850` is not the current formal setting.
+- Nonzero AdamW decay is an ablation, not the formal default.
+- Good field MSE does not establish image quality.
+- Noisy-state reward is not a final-trajectory value function.
+- The original Hyperion tree is never the working directory.
 
-Interpretation: image-code conditioning works on an unseen reference at the
-field/runtime level, but the current pooled VAE code does not yet establish a
-universal image-quality advantage over style-ID conditioning.
+## 15. Handoff Checklist
 
-### Native teacher comparison
-
-The formal teacher note reports that `score_carrier` is stronger than the
-K/V replacement baseline on the first matched three-pair validation for CSD,
-CLIP-T, and DINO style, while Gram distance and layout leakage remain tradeoff
-metrics. Treat this as a promising comparison, not a multi-seed dominance
-claim. See `docs/formal25_teacher_comparison.md`.
-
-## 7. Priority Queue for the Next Agent
-
-### P0: Finish the online ablation matrix
-
-Run the same nine `(style,prompt,seed)` cases for:
-
-1. `score_carrier` with the documented start-time and carrier settings.
-2. `ca_dmd` with persistent fake-score state.
-3. `score_match` and `kv_match` as matched baselines where missing.
-4. `carrier_loss_weight` sweep, with all other flags fixed.
-
-Create one manifest per method, evaluate with the same evaluator, and add
-mean/std tables to `docs/full_paper_draft.md`.
-
-### P1: Validate DMD honestly
-
-Before using the phrase “DMD loss” in a headline claim, record fake-score
-backend, optimizer, update count, timestep sampling, replay state path, and
-resume behavior. The current implementation has a backend path, but a formal
-dataset-level dynamic fake-score validation is still a gate.
-
-### P1: Build the image grid
-
-For each method, render the same reference/prompt/seed cases and assemble a
-visual grid containing reference, baseline, K/V baseline, CA-only,
-score-carrier, and CA+DMD. Inspect object preservation and reference-layout
-leakage before interpreting scalar metrics.
-
-### P2: Strengthen image conditioning
-
-Keep the pooled VAE mean/std code as the reproducible baseline. Add a stronger
-frozen image encoder only as a controlled ablation, and preserve exact
-unseen-reference and unseen-style-family splits.
-
-### P2: Layer probes
-
-The “goal early, carrier spatially, executor late” story is a motivated
-hypothesis. Do not rewrite it as a causal empirical finding until the layer
-probe and intervention experiments in `klein9b_probe_plan.md` are complete.
-
-## 8. Common Failure Modes
-
-- Comparing with-style and without-style predictions at different latent or
-  timesteps invalidates the residual.
-- Adding score-space tensors directly to the FLUX velocity scheduler breaks
-  scale and can produce unstable images.
-- `start-time=1000` is the current formal setting; the earlier `850` setting
-  weakens the native score signal in the documented comparison.
-- `--latent-weight-decay 0` is intentional. Nonzero AdamW decay is an explicit
-  regularization ablation, not part of the main protocol.
-- A new run should use a new `--out-prefix`; generated files are ignored and
-  can otherwise be mistaken for fresh evidence.
-- The original source directory is not the experiment workspace.
-- A good field MSE does not prove good image-level style transfer. Always run
-  image metrics and inspect a visual grid.
-- Do not call the offline student necessary for the paper's main method.
-
-## 9. Handoff Checklist
-
-Before handing the project to another agent:
-
-- `git status --short` is understood and unrelated changes are preserved.
-- Source files compile and the two regression test modules pass.
-- Every generated run has a unique prefix, manifest row, and log path.
-- The method flags and environment are recorded in the relevant doc.
-- Results are reported with exact seeds, prompts, styles, steps, and metrics.
-- Claims distinguish validated CA-only, promising score-carrier, and unvalidated
-  formal CA+DMD evidence.
-- No file under `/home/ubuntu/chengyanli/items/save/attention_20260426_090948`
-  was modified.
+- Server and Mac clone are on the same commit.
+- `git status --short` is understood on both machines.
+- The 53-test regression passes on the server.
+- Every new run has a unique prefix, manifest row, and environment record.
+- Paper numbers trace to a summary JSON or protocol audit.
+- Main, ablation, extension, and negative diagnostic are labeled correctly.
+- Paper and supplement compile on the server with the documented assets.
+- No file under the original Hyperion path was modified.

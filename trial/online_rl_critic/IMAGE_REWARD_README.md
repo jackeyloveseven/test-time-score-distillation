@@ -1,5 +1,10 @@
 # Trial: Image-Level Delayed Reward
 
+> **Status (2026-07-14): historical diagnostic.** This delayed image-reward
+> search is not the proposed method and is not a free improvement over
+> GoalCarrier. It is retained to document the tested reward hypothesis; see
+> `PROTOCOL_AUDIT.md` for the controlled interpretation.
+
 This trial replaces the local objective reward with a frozen CSD style reward
 computed from low-resolution VAE decodes. It remains isolated under
 `trial/online_rl_critic/`.
