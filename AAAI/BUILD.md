@@ -14,6 +14,10 @@ The draft uses an ordinary two-column article preamble so it remains portable
 without the official AAAI class. Before submission, use the current AAAI style
 package and its required author, copyright, and anonymization fields.
 
+The current compiled target is seven pages of main text plus two pages of
+references (nine pages total). The supplementary material is compiled
+separately and is three pages in the current draft.
+
 ## Evidence Sources
 
 - Main method and story: `docs/full_paper_draft.md` and
