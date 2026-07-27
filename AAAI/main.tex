@@ -536,11 +536,14 @@ prompts are in Figure~\ref{fig:dense-grid}.}
 \includegraphics[width=\textwidth]{main_results/two_prompt_grid.pdf}
 \caption{\textbf{The medium transfers across content, not just one subject.}
 Five media-diverse styles (rows) are each applied to two very different content
-prompts --- a panda and a lighthouse. The leftmost column is the shared style
-reference; within each content block the columns are the two matched native
-edits (keep-/new-composition) and TSD Semantic / TSD Global. TSD renders
-\emph{both} subjects in the reference medium, whereas the native image+text
-edits default to a generic realistic rendering that ignores the medium. The
+prompts --- a panda and a lighthouse. The leftmost column, \textbf{Ref.}, is the
+shared style reference. Within each content block the four columns are: \textbf{Nat.\
+keep} and \textbf{Nat.\ new} --- the frozen model's \emph{own} native image+text
+edit run under a composition-\emph{preserving} and a \emph{new}-composition
+instruction, respectively (the ``keep-comp.'' and ``new-comp.'' baselines of
+Table~\ref{tab:benchmark}) --- and \textbf{TSD Sem.}\ / \textbf{TSD Glob.}, our
+two modes. TSD renders \emph{both} subjects in the reference medium, whereas the
+native edits default to a generic realistic rendering that ignores the medium. The
 panda is the quantified benchmark subject; the lighthouse is an \emph{unseen}
 qualitative probe. Seeds are selected per cell from $\{65,202,777\}$ for
 legibility; all quantitative results use fixed seed 65. Four further content

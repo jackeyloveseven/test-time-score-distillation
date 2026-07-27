@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:20
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -455,19 +455,19 @@ t line 536.
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 1033) in paragraph at lines 584--597
+Underfull \hbox (badness 1033) in paragraph at lines 587--600
 []\T1/ntxtlf/b/n/10 Is the style-fidelity gap real style, or just more
  []
 
 
-Underfull \vbox (badness 1221) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [6 <./figures/main_results/two_prompt_grid.pdf>]
 <figures/reverse_shield/reverse_shield.pdf, id=179, 371.18065pt x 252.55956pt>
 File: figures/reverse_shield/reverse_shield.pdf Graphic file (type pdf)
 <use figures/reverse_shield/reverse_shield.pdf>
 Package pdftex.def Info: figures/reverse_shield/reverse_shield.pdf  used on inp
-ut line 624.
+ut line 627.
 (pdftex.def)             Requested size: 239.39438pt x 162.89001pt.
  [7 <./figures/reverse_shield/reverse_shield.pdf>] (./main.bbl
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -500,7 +500,7 @@ blic/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ne
 wtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmbi.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/share/te
 xlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on main.pdf (9 pages, 6613756 bytes).
+Output written on main.pdf (9 pages, 6613986 bytes).
 PDF statistics:
  292 PDF objects out of 1000 (max. 8388607)
  129 compressed objects within 2 object streams
