@@ -1,13 +1,19 @@
 # Submission Readiness Audit
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 ## Current Verdict
 
-The paper is structurally submission-ready and empirically strong at fixed
-seed, but two non-human validation runs remain: paired multi-seed completion and
-the reverse-shield ablation. Human evaluation is explicitly outside the current
-scope.
+SUBMISSION-READY. The paper is structurally complete and empirically strong
+at fixed seed; no non-human validation runs remain. The reverse-shield
+ablation is done (Fig 4, ρ=0 collapses all five preselected styles). The
+multi-seed matrix (seeds 64/66) is intentionally deferred future work, not a
+submission blocker — the paper is honestly single-seed and labels its SD as
+cross-style dispersion. Human evaluation is explicitly outside the current
+scope. The only remaining items are human actions: upload the 3 PDFs
+(main.pdf, supplement.pdf, checklist.pdf) to the AAAI/OpenReview site
+(main-PDF deadline 2026-07-28), and finalize the code/supplement appendix and
+license wording (due 2026-07-31).
 
 ## Completed Scientific Work
 
@@ -28,31 +34,48 @@ scope.
 
 - Official AAAI 2027 author kit applied.
 - Related Work constrained to two paragraphs with expanded citations.
-- Main and supplement both fit 8 US-Letter pages.
+- Three separate PDFs: main.pdf = 9 US-Letter pages (technical p1-7,
+  references only p8-9); supplement.pdf = 11 pages; checklist.pdf = 2 pages
+  (standalone official AAAI-2027 28-item reproducibility checklist, not
+  appended to the supplement).
 - Large blank regions removed through float and caption optimization.
 - 15 active self-contained figure packages validate.
-- Canonical TSD framework, six-axis radar, external-model audit, and Agent
-  benchmark workflow are wired into the paper/supplement.
+- Canonical TSD framework figure, quantitative results figure, dense style
+  grid, reverse-shield ablation figure, external-model audit, and Agent
+  benchmark workflow are wired into the paper/supplement. (The six-axis
+  Agent radar figure was removed from the paper; see Canonical Evidence.)
 - Current builds have no undefined references, missing figures, or overfull
   boxes.
+- All AAAI format gates pass: Type-3 fonts = 0 (found and fixed 2026-07-27
+  via matplotlib `pdf.fonttype=42`, 6 figures regenerated), all fonts
+  embedded, 39 cited references (1 uncited entry removed from the 40-entry
+  .bib), aaai2027.sty/.bst byte-identical to the official AuthorKit27, no
+  forbidden packages, no `\nocopyright`, anonymous author block.
 
 ## Remaining P0 Evidence Gates
 
-1. Complete seeds 64 and 66 for the four-method, 40-style paired matrix and
-   report seed-level uncertainty separately from cross-style dispersion.
-2. Complete the reverse-step-strength ablation `{1, 0.5, 0}` under standard and
-   stress settings and bound the resulting mechanism claim.
-3. Reconcile Abstract, Introduction, Results, and Conclusion if either run
-   materially changes current conclusions.
+None. All P0 evidence gates are closed. The reverse-step-strength ablation
+`{1, 0.5, 0}` is complete and bounds the mechanism claim (Fig 4).
+
+Historical note: seeds 64 and 66 for the four-method, 40-style paired matrix
+were queued to report seed-level uncertainty separately from cross-style
+dispersion, and a reconcile-Abstract/Introduction/Results/Conclusion step was
+queued in case that run materially changed conclusions. This multi-seed run
+is now deferred future work (see `docs/todo.md`), not a submission gate, so
+the reconcile step is moot for this submission.
 
 ## Remaining P1 Submission Gates
 
-- Public-open-weight replication of the local third-judge protocol.
-- Code/data release manifest, evaluator hashes, and redistribution/license
-  notes.
-- Final Data Availability and Code Availability wording.
-- Final anonymity, PDF metadata, font embedding, filename, and upload checks.
-- Final reviewer-style adversarial read.
+All non-human P1 gates are closed (open-weight third-judge replication is
+done via the Gemma-4 evaluation-robustness study; format/anonymity/font
+checks are done, see Completed Presentation Work above). What remains is
+human action only:
+
+- Upload the 3 PDFs (main.pdf, supplement.pdf, checklist.pdf) to the
+  AAAI/OpenReview site (main-PDF deadline 2026-07-28).
+- Finalize the code/data release manifest, evaluator hashes,
+  redistribution/license notes, and Data/Code Availability wording (due
+  2026-07-31).
 
 ## Claims That Must Not Drift
 
@@ -71,10 +94,14 @@ scope.
 
 ## Canonical Evidence
 
-- `main.tex`, `supplement.tex`
+- `main.tex`, `supplement.tex`, `checklist.tex`
 - `supplement/data/`
-- `figures/agent_multidim_radar/`
+- `figures/reverse_shield/`
+- `figures/main_results/`
 - `figures/external_model_audit/`
 - `figures/open_judge_validation/`
 - `figures/agent_benchmark_pipeline/`
-- manifests and summaries produced by the remaining validation scripts
+- manifests and summaries produced by the validation scripts
+
+Note: the six-axis Agent radar figure (`figures/agent_multidim_radar/`) was
+removed from the paper; it is no longer canonical evidence.

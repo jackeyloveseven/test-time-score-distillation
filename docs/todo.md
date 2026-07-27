@@ -1,34 +1,28 @@
 # Current TODO
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
+
+Paper is final and pushed; remaining = human upload (7/28) + code
+appendix/license (7/31).
 
 `PROJECT_STATE.md` defines the current claims. This queue contains only work
 that remains relevant to the present TSD paper.
 
-## P0: Finish Queued Validation
+## P0: Human Submission Actions
 
-1. Free root-filesystem space; the server currently has roughly 18 MiB free.
-2. Relaunch `scripts/run_remaining_validation.sh` when disk and GPU headroom are adequate.
-3. Complete the paired 40-style, three-seed matrix for TSD Semantic, TSD Global,
-   native keep-composition, and native new-composition. Seeds 64 and 66 remain:
-   320 cells total.
-4. Aggregate style-bootstrap confidence intervals, seed-level variability,
-   cell/style win rates, runtime, peak memory, forward calls, and backward calls.
-5. Run the reverse-shield ablation with reverse-step strengths `{1, 0.5, 0}`
-   under standard and stress settings on the preselected five styles.
-6. Update paper numbers only if the completed paired evidence changes the
-   current fixed-seed conclusions.
+1. Upload the 3 PDFs (main.pdf, supplement.pdf, checklist.pdf) to the
+   AAAI/OpenReview site. Main-PDF deadline: 2026-07-28.
+2. Finalize the code/supplement appendix and license wording. Due: 2026-07-31.
 
 ## P1: Submission Strengthening
 
-- Replicate the local third-judge protocol with a publicly downloadable
-  open-weight VLM once GPU memory permits.
-- Finalize code/data release manifests, evaluator hashes, model/license notes,
-  and the Data/Code Availability wording.
-- Run final anonymous-submission checks: author metadata, PDF metadata, font
-  embedding, figure legibility, references, and supplementary file naming.
-- Perform a final adversarial paper review focused on the empirical status of
-  reverse-process regularization and the bounded external-model audit.
+Non-human items are done: the third-judge protocol has been replicated with
+a publicly downloadable open-weight VLM (Gemma-4 evaluation-robustness
+study), and anonymous-submission/format checks are complete (see Completed,
+below). What remains is human action:
+
+- Finalize code/data release manifests, evaluator hashes, model/license
+  notes, and the Data/Code Availability wording. Due 2026-07-31.
 
 ## P2: Optional Extensions
 
@@ -38,9 +32,32 @@ that remains relevant to the present TSD paper.
 - Attention-level exact-motif transfer, as a separate method family rather
   than a hidden extension of TSD.
 
+## Deferred / Future Work (not submission blockers)
+
+- Complete the paired 40-style, three-seed matrix for TSD Semantic, TSD
+  Global, native keep-composition, and native new-composition (seeds 64 and
+  66; 320 cells total). The paper is honestly single-seed and labels its SD
+  as cross-style dispersion; this is out-of-budget future work, not a gate.
+- Free root-filesystem space and relaunch
+  `scripts/run_remaining_validation.sh` when disk and GPU headroom are
+  adequate, to support the above.
+- Aggregate style-bootstrap confidence intervals, seed-level variability,
+  cell/style win rates, runtime, peak memory, forward calls, and backward
+  calls once the multi-seed matrix exists.
+- Update paper numbers only if the completed paired evidence changes the
+  current fixed-seed conclusions.
+
 ## Completed
 
-- Official AAAI 2027 style applied; main and supplement both compile to 8 pages.
+- Official AAAI 2027 style applied; main.pdf = 9 US-Letter pages (technical
+  p1-7, references p8-9); supplement.pdf = 11 pages; checklist.pdf = 2 pages
+  (standalone AAAI-2027 28-item reproducibility checklist, not appended to
+  the supplement).
+- All AAAI format gates pass: 0 overfull/undefined, all fonts embedded,
+  Type-3 fonts = 0 (found and fixed 2026-07-27 via matplotlib
+  `pdf.fonttype=42`), US-Letter, aaai2027.sty/.bst byte-identical to the
+  official AuthorKit27, no forbidden packages, no `\nocopyright`, 39 cited
+  references, anonymous author block.
 - Related Work compressed to two paragraphs and bibliography expanded.
 - Fixed-seed 40-style benchmark and full per-style table completed.
 - Five-style multi-prompt extension completed.
@@ -51,6 +68,8 @@ that remains relevant to the present TSD paper.
   and inserted into the supplement.
 - Figure-package validation passes 15 active packages.
 - SRSD validation completed and rejected as an honest null.
+- Reverse-shield ρ-knockout ablation completed (Fig 4): ρ=0 collapses all
+  five preselected styles.
 
 ## Guardrails
 

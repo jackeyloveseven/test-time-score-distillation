@@ -1,6 +1,6 @@
 # Project State
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 This is the shortest authoritative description of the project. The canonical
 paper prose is `AAAI/main.tex`; this file records the operational and empirical
@@ -14,9 +14,17 @@ Reverse-Process Regularization*
 **Target:** AAAI 2027, anonymous submission using the local `aaai2027` author
 kit.
 
-**Compiled state:** `AAAI/main.pdf` and `AAAI/supplement.pdf` are both eight
-US-Letter pages. Both compile without undefined references, missing figures, or
-overfull boxes. The figure-package validator passes 15 active packages.
+**Compiled state:** `AAAI/main.pdf` is 9 US-Letter pages (technical content
+p1-7, references only on p8-9); `AAAI/supplement.pdf` is 11 US-Letter pages;
+`AAAI/checklist.pdf` is 2 US-Letter pages, the official AAAI-2027 28-item
+reproducibility checklist compiled as a standalone document
+(`AAAI/checklist.tex`), not appended to the supplement. All three compile
+without undefined references, missing figures, or overfull boxes; all fonts
+are embedded with 0 Type-3 fonts (fixed 2026-07-27 via matplotlib
+`pdf.fonttype=42`); `aaai2027.sty`/`.bst` are byte-identical to the official
+AuthorKit27; no forbidden packages are used; 39 references are cited (one
+uncited entry removed from the 40-entry `.bib`). The figure-package validator
+passes 15 active packages.
 
 ## Method
 
@@ -74,36 +82,40 @@ iterations, step size, and normalization granularity.
 
 ## Figures
 
-- `AAAI/figures/tsd_framework/` is the canonical method schematic.
-- `AAAI/figures/agent_multidim_radar/` is the canonical six-axis radar figure.
+- `AAAI/figures/tsd_framework/` is the canonical method schematic (Fig. 1):
+  defines CA/DM, with panel (a) Decoupled DMD (grad L = CA + DM) and panel (b)
+  our TSD (grad L = CA alone).
+- `AAAI/figures/main_results/` supplies the canonical two-panel quantitative
+  figure (Fig. 2) and the two-prompt dense style grid (Fig. 3).
+- `AAAI/figures/reverse_shield/` supplies the canonical reverse-shield
+  rho-knockout ablation (Fig. 4).
+- The six-axis radar figure has been removed from the paper; it is no longer
+  canonical.
 - `AAAI/figures/agent_benchmark_pipeline/` is the canonical Agent evaluation
-  workflow. Its package contains generation and correction prompts, intent,
-  research notes, caption, QA, script, accepted image, and API provenance.
+  workflow, still included in the supplement. Its package contains generation
+  and correction prompts, intent, research notes, caption, QA, script,
+  accepted image, and API provenance.
 - Every active figure is self-contained; no loose active PNG is permitted at
   the figure root.
 
 ## Not Yet Established
 
-- Full three-seed uncertainty over all 40 styles. Seeds 64 and 66 remain to be
-  generated for four methods, 320 cells total.
-- The reverse-shield ablation over strengths `{1, 0.5, 0}` under standard and
-  stress settings.
-- A public-open-weight replication of the third-judge audit.
+- Full three-seed uncertainty over all 40 styles. Seeds 64 and 66 are
+  intentionally out of budget for this submission and are deferred to future
+  work, not a submission blocker; four methods, 320 cells total.
 - Human preference correlation; human evaluation is intentionally outside the
   current validation scope.
 - Multi-backbone generality, exact structured-motif reproduction, or a
   compute-matched external leaderboard.
 
-## Current Runtime State
+## Wrap-up State
 
-The resumable queue is implemented by `scripts/run_remaining_validation.sh`.
-It is **not currently running**. The last driver log stopped at the GPU
-headroom gate, reporting roughly 7 GiB free. Relaunch only after verifying
-sufficient free memory; never terminate foreign GPU processes.
-
-The root filesystem is at 100% utilization with roughly 18 MiB free. Disk
-cleanup is an additional blocker for new experiment outputs and must preserve
-owned results, checkpoints, and foreign data.
+The paper is final and pushed. Disk usage is back to normal (~3.8 GB used,
+plenty free); no validation is queued for the submission. The only remaining
+work is the human upload step (main-PDF deadline 2026-07-28; code and
+supplement appendix due 2026-07-31). The multi-seed queue
+(`scripts/run_remaining_validation.sh`, seeds 64/66) is deferred future work,
+not a submission blocker, and is not currently running.
 
 ## Locked Boundaries
 

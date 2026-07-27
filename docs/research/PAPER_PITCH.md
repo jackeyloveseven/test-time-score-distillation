@@ -1,6 +1,6 @@
 # Paper Pitch: Test-Time Score Distillation
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 Canonical prose and numbers live in `AAAI/main.tex` and
 `AAAI/supplement.tex`. This document is the reviewer-facing story and
@@ -56,7 +56,9 @@ The reverse-step regime controls locality:
 - Five fixed styles x four additional prompts yield 20/20 paired wins.
 - Primary Agent preferences: 39/40 Semantic pairs and 37/40 Global pairs.
 - Secondary reliability audit: 68/80 coverage, 68/68 preferred-method
-  agreement on shared cells, no imputation.
+  agreement on shared cells, no imputation. A third independent judge
+  (Gemma-4) further confirms evaluation robustness; a wrong-reference control
+  drops the score from 4.21 to 1.33.
 - Five-style public-editor audit shows strong style-axis performance against
   FireRed and Qwen under matched inputs, while preserving the boundary that it
   is not a compute-matched leaderboard.
@@ -84,7 +86,7 @@ The reverse-step regime controls locality:
 4. Evaluation protocol: matched native baseline and three separable metrics.
 5. Results: parameter study, 40-style benchmark, Agent benchmark, robustness,
    and mechanism/negative evidence.
-6. Limitations and conclusion: optimization cost, one-backbone scope, external
+6. Conclusion: optimization cost, one-backbone scope, external
    audit boundary, exact motifs, and empirical status of the regularizer.
 
 ## Claim-Evidence Map

@@ -1,6 +1,6 @@
 # Documentation Map
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 The active documentation surface is intentionally small. Historical experiment
 logs and pre-TSD designs remain available for provenance, but they do not define
@@ -42,8 +42,9 @@ the current method, claims, or queue.
 ../AAAI/figures/README.md        active figure inventory
 ```
 
-Current compiled outputs are `AAAI/main.pdf` and `AAAI/supplement.pdf`, both
-eight US-Letter pages as of 2026-07-23.
+Current compiled outputs are `AAAI/main.pdf` (9 US-Letter pages: technical
+content p.1-7, references p.8-9), `AAAI/supplement.pdf` (11 US-Letter pages),
+and the standalone `AAAI/checklist.pdf` (2 US-Letter pages), as of 2026-07-27.
 
 ## Historical Material
 

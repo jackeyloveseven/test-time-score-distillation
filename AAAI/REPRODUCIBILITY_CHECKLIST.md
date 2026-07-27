@@ -1,16 +1,16 @@
 # AAAI-27 Reproducibility Checklist — answer key (for the submission form)
 
-Paste-ready answers for the AAAI reproducibility checklist. The same content is
-rendered as a "Reproducibility Checklist" section at the **end of the technical
-appendix** (`supplement.pdf`, last section). Use this file if AAAI-27 instead
-asks for the answers in a **designated submission-form field**.
+Paste-ready answers for the AAAI reproducibility checklist. The checklist is
+now a **separate standalone document**, `checklist.pdf` (built from
+`checklist.tex`), submitted in the AAAI-2027 designated checklist field. This
+markdown file is the human-readable answer key mirroring `checklist.pdf`.
 
-> Placement note: AAAI-27 submission-instructions say the checklist is "uploaded
-> separately from the main paper in the designated field"; the AAAI-26/-25
-> checklist pages say it goes "at the end of the technical appendix." These are
-> not in conflict (both mean: not inside the 7-page main PDF). We satisfy both —
-> the checklist is in the supplement appendix **and** available here for a form
-> field. Confirm the exact AAAI-27 mechanism on the submission site.
+> Placement note: AAAI-27 submission instructions say the checklist is "uploaded
+> separately from the main paper in the designated field." The checklist is no
+> longer rendered at the end of the technical appendix / `supplement.pdf` — it
+> was split out into its own standalone document (`checklist.tex` ->
+> `checklist.pdf`, 2 pages) and is submitted through that dedicated field. This
+> markdown mirrors `checklist.pdf` for convenience and paste-in use.
 
 ## General
 1. Conceptual outline / pseudocode of AI methods introduced — **yes**

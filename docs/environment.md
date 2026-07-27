@@ -1,6 +1,6 @@
 # Environment and Reproducibility
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 ## Server
 
@@ -35,14 +35,13 @@ The original source root is read-only:
 - Never terminate or renice foreign GPU processes.
 - Long jobs must be resumable, skip-existing, and manifest-backed.
 
-The remaining validation queue is currently not running. The most recent log
-was blocked at the 24-GiB headroom gate. GPU occupancy changes frequently, so
-the log is evidence of the last attempt, not a permanent hardware state.
+No validation queue is running: the paper is final and pushed, so no generation
+or evaluation is scheduled. The multi-seed matrix (seeds 64/66) is deferred
+future work, not a submission blocker.
 
-The root filesystem is currently full, with roughly 18 MiB free after the
-2026-07-23 paper build. Disk cleanup is required before further generation or
-evaluation. Remove only confirmed disposable caches or owned temporary files;
-do not remove results, checkpoints, or foreign data by assumption.
+The workspace uses roughly 3.8 GB with ample free space. If any future run needs
+room, remove only confirmed disposable caches or owned temporary files; do not
+remove results, checkpoints, or foreign data by assumption.
 
 ## Basic Verification
 
@@ -69,7 +68,9 @@ pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
 pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
 ```
 
-Expected outputs as of 2026-07-23: main 8 pages, supplement 8 pages, US Letter.
+Expected outputs as of 2026-07-27: main 9 pages (technical content p.1-7,
+references p.8-9), supplement 11 pages, and a standalone checklist.pdf
+(2 pages), all US Letter.
 
 ## Evaluators
 

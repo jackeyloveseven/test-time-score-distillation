@@ -1,6 +1,6 @@
 # Handoff
 
-Updated: 2026-07-23.
+Updated: 2026-07-27.
 
 Repository root:
 
@@ -19,9 +19,17 @@ The previous long-form handoff is preserved at
 - Title: *Test-Time Score Distillation: Mask-Free Semantic Style Editing with
   Reverse-Process Regularization*.
 - Target: anonymous AAAI 2027 submission.
-- `AAAI/main.pdf`: 8 US-Letter pages.
-- `AAAI/supplement.pdf`: 8 US-Letter pages.
-- Build status: no undefined references, missing figures, or overfull boxes.
+- `AAAI/main.pdf`: 9 US-Letter pages (technical content p1-7, references only
+  on p8-9).
+- `AAAI/supplement.pdf`: 11 US-Letter pages.
+- `AAAI/checklist.pdf`: 2 US-Letter pages, the official AAAI-2027 28-item
+  reproducibility checklist compiled as a standalone document
+  (`AAAI/checklist.tex`), not appended to the supplement.
+- Build status: no undefined references, missing figures, or overfull boxes;
+  all fonts embedded, 0 Type-3 fonts (fixed 2026-07-27 via matplotlib
+  `pdf.fonttype=42`); US-Letter throughout; `aaai2027.sty`/`.bst`
+  byte-identical to the official AuthorKit27; no forbidden packages; 39
+  references cited (one uncited entry removed from the 40-entry `.bib`).
 - Figure validator: 15 active packages pass.
 
 ## Current Scientific Story
@@ -50,19 +58,21 @@ training-free of weights and optimization-based at inference.
 - Six-axis task-aware Agent benchmark with a complete primary judge.
 - Secondary judge coverage is 68/80 shared paired cells; malformed responses
   are recorded with no imputation.
+- A third, independent judge (Gemma-4) evaluation-robustness analysis is
+  complete, including the wrong-reference control.
 - Local wrong-reference control validates only reference-specific style
   discrimination.
+- Reverse-shield rho-knockout ablation is complete and appears as Fig. 4 in the
+  paper; rho=0 collapses all five styles to noise. This ablation is qualitative
+  only; no CSD/VLM aggregation was run for it.
 - Fixed five-style FireRed/Qwen matched-input audit; this is not a compute-
   matched leaderboard.
 - SRSD tested and rejected as an honest null.
 
 ## Agent Benchmark Figures
 
-### Radar
-
-`AAAI/figures/agent_multidim_radar/` contains the canonical six-axis radar,
-evaluation scripts, raw verdicts, source CSVs, editable PDF/SVG, PNG/TIFF, QA,
-and caption.
+The six-axis radar figure has been removed from the paper; it is no longer
+canonical.
 
 ### Workflow
 
@@ -82,47 +92,36 @@ not a replacement for human evaluation.
 
 ## Remaining Validation
 
-### Multi-Seed Benchmark
+Status: **submission-ready**. The only remaining work is human upload
+(main-PDF deadline 2026-07-28; code/supplement appendix due 2026-07-31).
 
-Seed 65 is complete for four matched methods. Seeds 64 and 66 remain, 320 cells
-total. The aggregation contract includes seed variability, style-bootstrap
-intervals, win rates, runtime, memory, and forward/backward counts.
+### Multi-Seed Benchmark (deferred, future work)
 
-### Reverse-Shield Ablation
+Seed 65 is complete for four matched methods and backs all reported results.
+Seeds 64 and 66 are intentionally out of budget for this submission, 320 cells
+total; they are deferred to future work, not a submission blocker. The
+aggregation contract includes seed variability, style-bootstrap intervals, win
+rates, runtime, memory, and forward/backward counts.
 
-The code and protocol are ready for reverse-step strengths `{1, 0.5, 0}` under
-standard and stress settings on five styles.
+### Reverse-Shield Ablation (done)
 
-### Public Judge Replication
+Reverse-step strengths `{1, 0.5, 0}` under standard and stress settings on five
+styles are complete and reported as Fig. 4 in the paper; rho=0 collapses all five
+styles to noise. This is a qualitative ablation only; CSD/VLM aggregation was
+not run for it.
 
-The private local third judge is complete on 95 calibration cells. A public
-open-weight replication remains pending GPU availability.
+### Public Judge Replication (done)
 
-## Runtime State
+The private local third judge is complete on 95 calibration cells. A third,
+independent, open-weight judge (Gemma-4) completed the evaluation-robustness
+replication, including the wrong-reference control.
 
-The serial resume script is:
+## Wrap-up State
 
-```bash
-./scripts/run_remaining_validation.sh
-```
-
-It runs the multi-seed benchmark and then the reverse-shield ablation. It is
-**not currently running**. The latest driver log repeatedly hit the 24-GiB
-headroom gate and reported roughly 7 GiB free. Check `nvidia-smi` before
-relaunching. Never kill foreign jobs.
-
-The root filesystem is also at 100% utilization, with roughly 18 MiB free after
-the final documentation build. Free disk space before launching experiments or
-large evaluations. Do not delete result trees, checkpoints, or foreign files
-without explicit ownership confirmation.
-
-Useful checks:
-
-```bash
-pgrep -af 'run_remaining_validation|run_benchmark_multiseed|benchmark_multiseed'
-tail -n 80 agent_runs/remaining_validation_driver.log
-nvidia-smi
-```
+The paper is final and pushed. Disk usage is back to normal (~3.8 GB used,
+plenty free); no validation is queued for the submission. The multi-seed queue
+(`./scripts/run_remaining_validation.sh`, seeds 64/66) is deferred future work,
+not a submission blocker, and is not currently running.
 
 ## Paper and Figure Commands
 

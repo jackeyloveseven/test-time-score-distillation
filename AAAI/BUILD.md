@@ -1,6 +1,6 @@
 # Build and Validation
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 ## Compile
 
@@ -22,8 +22,9 @@ pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
 Expected outputs:
 
 ```text
-main.pdf        8 pages, US Letter
-supplement.pdf  8 pages, US Letter
+main.pdf        9 pages, US Letter (technical content p.1-7, references p.8-9)
+supplement.pdf  11 pages, US Letter
+checklist.pdf   2 pages, US Letter (standalone reproducibility checklist)
 ```
 
 ## Figure-Package Validation

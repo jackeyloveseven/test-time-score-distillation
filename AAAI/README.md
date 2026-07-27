@@ -1,6 +1,6 @@
 # AAAI 2027 Paper
 
-Status date: 2026-07-23.
+Status date: 2026-07-27.
 
 This directory contains the anonymous AAAI 2027 submission draft:
 
@@ -9,8 +9,12 @@ Reverse-Process Regularization**
 
 ## Canonical Files
 
-- `main.tex` / `main.pdf` - canonical main paper, 8 US-Letter pages.
-- `supplement.tex` / `supplement.pdf` - canonical supplement, 8 US-Letter pages.
+- `main.tex` / `main.pdf` - canonical main paper, 9 US-Letter pages (technical
+  content p.1-7, references p.8-9).
+- `supplement.tex` / `supplement.pdf` - canonical supplement, 11 US-Letter
+  pages.
+- `checklist.tex` / `checklist.pdf` - standalone reproducibility checklist,
+  2 US-Letter pages.
 - `references.bib` - bibliography used by `aaai2027.bst`.
 - `aaai2027.sty`, `aaai2027.bst` - local author-kit files.
 - `figures/` - self-contained active figure packages.
@@ -56,8 +60,9 @@ research, caption, QA, generation script, accepted image, and provenance.
 
 ## Page Contract
 
-- Main paper: 8 pages.
-- Supplement: 8 pages.
+- Main paper: 9 pages (technical content p.1-7, references p.8-9).
+- Supplement: 11 pages.
+- Checklist: 2 pages (standalone document, `checklist.pdf`).
 - Page size: US Letter.
 - No undefined references, missing figures, or overfull boxes in the current
   build.
