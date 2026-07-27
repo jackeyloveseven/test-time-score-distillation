@@ -368,8 +368,8 @@ intervals, and judge controls are provided in the supplement.
 \caption{\textbf{Task-aware multi-dimensional Agent evaluation.} Anonymous
 candidate pairs are rated on six 1--5 axes. Semantic locality measures
 reference-composition preservation; Global locality measures composition
-independence. Curves are means over 40 styles and bands are 95\% bootstrap
-intervals. The radar area is not used as a scalar score.}
+independence. Curves are means over 40 styles and radial whiskers are 95\%
+bootstrap intervals. The radar area is not used as a scalar score.}
 \label{fig:agent-radar}
 \end{figure*}
 
@@ -501,8 +501,9 @@ Native new-comp. & .247 $\pm$ .155 & .315 $\pm$ .011 & .299 $\pm$ .064 \\
 \includegraphics[width=0.88\textwidth]{main_results/main_results.pdf}
 \caption{\textbf{TSD improves style fidelity across two locality regimes.}
 (a) All 40 paired CSD gains are positive. (b) CSD--CLIP-T frontier at fixed
-seed 65 ($n=40$; mean $\pm$ cross-style SD). (c) Representative outputs; the
-full grid is in the supplement.}
+seed 65 ($n=40$; mean $\pm$ cross-style SD). (c) Representative outputs (seed
+selected per style from $\{65,202,777\}$ for legibility; the quantitative
+panels use fixed seed 65 throughout); the full grid is in the supplement.}
 \label{fig:mainresults}
 \end{figure*}
 
@@ -612,23 +613,17 @@ signal.
 \section{Conclusion}
 
 Training-free style transfer on a frozen transformer is one controllable
-\emph{style-locality} axis, and a single derived operator --- the
-CFG-augmentation spear of decoupled distribution matching, applied as a
-fixed-magnitude rms-normalized latent step --- serves both its ends: Semantic
-Style Editing with the full spear, Global Style Transfer with fewer reverse
-steps. The key design choice is an empirical \emph{regularization
-substitution}: bounded updates are interleaved with the frozen reverse
-trajectory, and no learned fake-score network is required in the evaluated
-regime. Across 40 styles, the operator improves mean CSD by
-2.48--2.69$\times$ over the same model's strongest native edit, with a modest
-subject-alignment cost, and can dissolve composition without discarding the
-reference medium. A
-generator-native single-forward style metric read from the spear is tempting
-but, we show, invalid --- it measures content collapse, not style --- a
-cautionary result that reinforces why style and composition must be read on
-separate axes. The Agent audit reaches the same conclusion: TSD's gains are
-concentrated in medium, mark-making, and palette, with explicit subject and
-composition trade-offs rather than an unqualified overall-quality claim.
+\emph{style-locality} axis served by a single operator: the CFG-augmentation
+spear of decoupled distribution matching, applied as a fixed-magnitude
+rms-normalized latent step --- the full spear for Semantic Style Editing, fewer
+reverse steps for Global Style Transfer. Its one non-obvious ingredient is an
+empirical \emph{regularization substitution}: interleaving bounded updates with
+the frozen reverse trajectory removes any need for a learned fake-score network
+in the evaluated regime. Across 40 styles this improves mean CSD by
+2.48--2.69$\times$ over the same model's strongest native edit, at a modest
+subject-alignment cost, and dissolves composition without discarding the
+reference medium --- gains the Agent audit localizes to medium, mark-making,
+and palette rather than an unqualified quality claim.
 
 \paragraph{Limitations (Stated Plainly).} TSD is training-free of weights but
 optimization-based at test time (a few latent iterations per step); we do not

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 04:58
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 06:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -466,21 +466,23 @@ File: figures/reverse_shield/reverse_shield_all5.pdf Graphic file (type pdf)
 Package pdftex.def Info: figures/reverse_shield/reverse_shield_all5.pdf  used o
 n input line 382.
 (pdftex.def)             Requested size: 239.39438pt x 383.23209pt.
-<figures/qualitative_comparison/qualitative_comparison.png, id=131, 1565.85pt x
- 1702.36pt>
-File: figures/qualitative_comparison/qualitative_comparison.png Graphic file (t
-ype png)
-<use figures/qualitative_comparison/qualitative_comparison.png>
-Package pdftex.def Info: figures/qualitative_comparison/qualitative_comparison.
-png  used on input line 393.
-(pdftex.def)             Requested size: 293.14218pt x 318.71426pt.
+<figures/main_results/dense_grid.pdf, id=131, 491.20566pt x 980.93356pt>
+File: figures/main_results/dense_grid.pdf Graphic file (type pdf)
+<use figures/main_results/dense_grid.pdf>
+Package pdftex.def Info: figures/main_results/dense_grid.pdf  used on input lin
+e 393.
+(pdftex.def)             Requested size: 299.665pt x 598.3944pt.
+
+
+LaTeX Warning: Float too large for page by 23.9644pt on input line 404.
+
 <figures/dm_negative/dm_negative.pdf, id=132, 485.04974pt x 635.74286pt>
 File: figures/dm_negative/dm_negative.pdf Graphic file (type pdf)
 <use figures/dm_negative/dm_negative.pdf>
 Package pdftex.def Info: figures/dm_negative/dm_negative.pdf  used on input lin
-e 402.
+e 408.
 (pdftex.def)             Requested size: 234.60545pt x 307.49095pt.
- [7
+[7
 
  <./figures/dm_negative/dm_negative.pdf>] (./reproducibility.tex
 LaTeX Font Info:    Trying to load font information for TS1+ntxtlf on input lin
@@ -494,8 +496,8 @@ LaTeX Font Info:    Font shape `TS1/ntxtlf/m/n' will be
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
 (Font)              scaled to size 9.0pt on input line 10.
  [8{/usr/share/texmf/fonts/enc/dvips/tex-gyre/q-ts1.enc}]) [9 <./figures/revers
-e_shield/reverse_shield_all5.pdf>] [10 <./figures/qualitative_comparison/qualit
-ative_comparison.png (PNG copy)>] (./supplement.aux)
+e_shield/reverse_shield_all5.pdf>] [10 <./figures/main_results/dense_grid.pdf>]
+ (./supplement.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2020/03/25>
@@ -503,7 +505,7 @@ L3 programming layer <2020/03/25>
  ) 
 Here is how much of TeX's memory you used:
  7256 strings out of 475589
- 118444 string characters out of 5782861
+ 118270 string characters out of 5782861
  1949975 words of memory out of 5000000
  29290 multiletter control sequences out of 15000+600000
  595603 words of font info for 69 fonts, out of 8000000 for 9000
@@ -521,10 +523,10 @@ fonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmsy9.pfb></usr/share/texmf/fonts/type1/public/tex-gyre/qtmr.pfb></usr/share/
 texlive/texmf-dist/fonts/type1/public/newtx/ztmb.pfb></usr/share/texlive/texmf-
 dist/fonts/type1/public/newtx/ztmr.pfb>
-Output written on supplement.pdf (10 pages, 14947969 bytes).
+Output written on supplement.pdf (10 pages, 16689357 bytes).
 PDF statistics:
- 312 PDF objects out of 1000 (max. 8388607)
- 152 compressed objects within 2 object streams
+ 456 PDF objects out of 1000 (max. 8388607)
+ 207 compressed objects within 3 object streams
  0 named destinations out of 1000 (max. 500000)
  46 words of extra memory for PDF output out of 10000 (max. 10000000)
 
