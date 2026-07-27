@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:50
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -496,51 +496,24 @@ e 411.
  [9
 
  <./figures/dm_negative/dm_negative.pdf>] [10 <./figures/main_results/supp_prom
-pts_grid.pdf>] (./reproducibility.tex
-\c@checksubsection=\count297
-\c@checkitem=\count298
-
-Underfull \hbox (badness 2334) in paragraph at lines 51--53
-[]\T1/ntxtlf/m/n/10 Does this pa-per make the-o-ret-i-cal con-tri-bu-tions?
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 63--65
-[]\T1/ntxtlf/m/n/10 Proofs of all novel claims are in-cluded
- []
-
-
-Underfull \hbox (badness 3199) in paragraph at lines 90--92
-[]\T1/ntxtlf/m/n/10 A mo-ti-va-tion is given for why the ex-per-i-
- []
-
-
-Underfull \hbox (badness 1735) in paragraph at lines 90--92
-\T1/ntxtlf/m/n/10 ments are con-ducted on the se-lected datasets
- []
-
-[11]
-Underfull \hbox (badness 1082) in paragraph at lines 135--137
-\T1/ntxtlf/m/n/10 method used for set-ting seeds is de-scribed in
- []
-
-
-Underfull \hbox (badness 2990) in paragraph at lines 147--149
-[]\T1/ntxtlf/m/n/10 Analysis of ex-per-i-ments goes be-yond single-
- []
-
-) [12 <./figures/reverse_shield/reverse_shield_all5.pdf>] (./supplement.aux)
+pts_grid.pdf>]
+LaTeX Font Info:    Trying to load font information for T1+pcr on input line 50
+9.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/t1pcr.fd
+File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
+) [11{/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc} <./figures/rev
+erse_shield/reverse_shield_all5.pdf>] (./supplement.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7245 strings out of 475589
- 118497 string characters out of 5782861
+ 7259 strings out of 475589
+ 118580 string characters out of 5782861
  1945975 words of memory out of 5000000
- 29286 multiletter control sequences out of 15000+600000
- 595218 words of font info for 68 fonts, out of 8000000 for 9000
+ 29297 multiletter control sequences out of 15000+600000
+ 595839 words of font info for 70 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
  95i,10n,117p,335b,366s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
@@ -550,13 +523,14 @@ ve/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/ty
 pe1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
-blic/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ne
-wtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb><
-/usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on supplement.pdf (12 pages, 20503640 bytes).
+blic/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/couri
+er/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmb.pfb>
+</usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/share/te
+xlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
+Output written on supplement.pdf (11 pages, 20508408 bytes).
 PDF statistics:
- 911 PDF objects out of 1000 (max. 8388607)
- 409 compressed objects within 5 object streams
+ 914 PDF objects out of 1000 (max. 8388607)
+ 411 compressed objects within 5 object streams
  0 named destinations out of 1000 (max. 500000)
  56 words of extra memory for PDF output out of 10000 (max. 10000000)
 
