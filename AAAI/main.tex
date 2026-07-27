@@ -177,14 +177,25 @@ and frozen-prior regularization.
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.85\textwidth]{tsd_framework/tsd_framework.png}
-\caption{Test-time Score Distillation as alternating task-direction
-distillation and frozen-prior regularization. At each denoising state, a
-same-state native conditional contrast supplies the task direction. An
-rms-normalized pseudo-target bounds the latent update, after which the frozen
-model's standard reverse step acts as an implicit generative-prior
-regularizer. In contrast to training-time DMD, which learns an auxiliary
-fake-score regularizer, TSD relocates regularization into the frozen inference
-dynamics and optimizes only the current latent.}
+\caption{\textbf{Test-Time Score Distillation (TSD) alternates task-direction
+distillation with frozen-prior regularization.} \emph{Left (the operator).} At
+each denoising state the frozen teacher's same-state conditional contrast
+$g_t=v_{\mathrm{target}}-v_{\mathrm{base}}$ supplies the task direction (a
+reference-conditioned minus a reference-free velocity); an rms-normalized
+pseudo-target bounds the latent update, $\tilde{x}_t=x_t+\eta\,\mathrm{rmsnorm}(g_t)$;
+the frozen model's standard reverse step $R_\theta$ then acts as an implicit
+generative-prior regularizer. \emph{Right (where the regularization lives).} The
+decoupled distillation gradient splits into two terms:
+\textbf{CA} (\emph{CFG-Augmentation}, the \emph{spear}
+$s_{\mathrm{cond}}-s_{\mathrm{uncond}}$, where $s_{\mathrm{cond}}/s_{\mathrm{uncond}}$
+are the reference-conditioned / reference-free scores) and \textbf{DM}
+(\emph{Distribution Matching}, the \emph{shield}, formed from a learned
+fake-score $s_{\mathrm{fake}}$). \textbf{(a) is Decoupled DMD} (training-time):
+it realizes the shield with a \emph{trained} fake-score network, so
+$\nabla\mathcal{L}=\text{CA}+\text{DM}$. \textbf{(b) is our TSD} (test-time): it
+drops the learned fake score and lets the frozen reverse process serve as the
+implicit regularizer, so $\nabla\mathcal{L}=\text{CA}$ alone --- no auxiliary
+network is trained.}
 \label{fig:pipeline}
 \end{figure*}
 
@@ -583,9 +594,9 @@ trade-off, more visible where subject identity is strong.
 
 \subsection{Ablations}
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.62\textwidth]{reverse_shield/reverse_shield.pdf}
+\includegraphics[width=\columnwidth]{reverse_shield/reverse_shield.pdf}
 \caption{\textbf{The frozen reverse step is the regularizer.} Scaling the frozen
 scheduler displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by
 $\rho\in\{1,0.5,0\}$ at a fixed task update (two representative styles). At
@@ -595,7 +606,7 @@ fixed-magnitude task updates alone drive the latent off-distribution into noise;
 $\rho=0.5$ interpolates. The collapse is style-independent (all five styles in
 the supplement).}
 \label{fig:reverseshield}
-\end{figure*}
+\end{figure}
 
 \textbf{The frozen reverse step is load-bearing.} We scale the scheduler
 displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by $\rho\in\{1,0.5,0\}$
@@ -629,13 +640,12 @@ audit therefore reads reference-specific style rather than assigning uniformly
 high scores; it remains a judge-robustness test, not a human study.
 
 \textbf{Where TSD gives up subject alignment.} The trade-off concentrates on
-subject-heavy references. On the portrait prompt the spear over-stylizes the
-face and CLIP-T falls by up to $\approx 0.08$; on already-graphic references the
-medium is near-saturated, so the gain is neutral rather than negative. In Global
-transfer the medium survives while composition dissolves, yet the reference
-layout is retained more than in the native new-composition edit --- the honest
-cost of transferring more style, visible as the higher layout-leak in
-Table~\ref{tab:benchmark}. None of these is a scoring artifact; each is the same
+subject-heavy references, as the portrait case above shows; on already-graphic
+references the medium is instead near-saturated, so the gain is neutral rather
+than negative. In Global transfer the medium survives while composition
+dissolves, yet the reference layout is retained more than in the native
+new-composition edit --- the honest cost of transferring more style, visible as
+the higher layout-leak in Table~\ref{tab:benchmark}. None of these is a scoring artifact; each is the same
 style--subject trade-off the frontier is built to expose, which is why we report
 paired axes rather than a single style score.
 
@@ -644,10 +654,7 @@ inference: the reported settings run five inner latent updates per reverse step
 (Semantic) or a few-step schedule (Global), adding compute over a plain sample
 while training nothing. Memory is dominated by the frozen backbone, so a single
 generation fits in about $24$\,GB and completes in roughly a minute on one GPU;
-we optimize only the current latent and keep no auxiliary network. All reported
-numbers use a fixed seed ($65$), so the error bars measure cross-style
-dispersion rather than seed noise; a paired multi-seed extension is specified in
-the released protocol.
+we optimize only the current latent and keep no auxiliary network.
 
 \section{Conclusion}
 
@@ -658,10 +665,7 @@ latent step. Its non-obvious ingredient is an empirical \emph{regularization
 substitution}: interleaving bounded updates with the frozen reverse trajectory
 removes any need for a learned fake-score network in the evaluated regime.
 Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
-strongest native edit, at a modest subject-alignment cost. More broadly, in the
-single-sample, frozen-model regime the ordinary inference dynamics can stand in
-for a learned regularizer --- a substitution worth testing wherever a
-distribution-matching objective would otherwise pay for an auxiliary network.
+strongest native edit, at a modest subject-alignment cost.
 
 \newpage
 \setlength{\bibsep}{4.5pt}

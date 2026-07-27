@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 11:20
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 11:40
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -400,45 +400,51 @@ Package pdftex.def Info: figures/tsd_framework/tsd_framework.png  used on input
  line 179.
 (pdftex.def)             Requested size: 430.00958pt x 241.99742pt.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 10.95pt on input line 191.
+(Font)              scaled to size 7.0pt on input line 198.
+LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
+(Font)              scaled to size 5.0pt on input line 198.
+LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
+(Font)              scaled to size 10.95pt on input line 202.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 10.95pt on input line 191.
-LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 7.0pt on input line 215.
-LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 5.0pt on input line 215.
+(Font)              scaled to size 10.95pt on input line 202.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/it' will be
-(Font)              scaled to size 10.95pt on input line 235.
- [2] [3 <./figures/tsd_framework/tsd_framework.png (PNG copy)>]
+(Font)              scaled to size 10.95pt on input line 246.
+ [2]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [3 <./figures/tsd_framework/tsd_framework.png (PNG copy)>]
 (./supplement/tables/external_model_audit.tex) [4]
 <figures/main_results/main_results.pdf, id=26, 304.66818pt x 147.03067pt>
 File: figures/main_results/main_results.pdf Graphic file (type pdf)
 <use figures/main_results/main_results.pdf>
 Package pdftex.def Info: figures/main_results/main_results.pdf  used on input l
-ine 490.
+ine 501.
 (pdftex.def)             Requested size: 239.39438pt x 115.53374pt.
 <figures/main_results/two_prompt_grid.pdf, id=27, 604.91823pt x 369.26566pt>
 File: figures/main_results/two_prompt_grid.pdf Graphic file (type pdf)
 <use figures/main_results/two_prompt_grid.pdf>
 Package pdftex.def Info: figures/main_results/two_prompt_grid.pdf  used on inpu
-t line 500.
+t line 511.
 (pdftex.def)             Requested size: 505.89pt x 308.81746pt.
-
-Underfull \hbox (badness 1033) in paragraph at lines 548--561
+ [5 <./figures/main_results/main_results.pdf>]
+Underfull \hbox (badness 1033) in paragraph at lines 559--572
 []\T1/ntxtlf/b/n/10 Is the style-fidelity gap real style, or just more
  []
 
-[5 <./figures/main_results/main_results.pdf>]
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 Underfull \vbox (badness 1221) has occurred while \output is active []
 
-<figures/reverse_shield/reverse_shield.pdf, id=46, 371.18065pt x 252.55956pt>
+ [6 <./figures/main_results/two_prompt_grid.pdf>]
+<figures/reverse_shield/reverse_shield.pdf, id=178, 371.18065pt x 252.55956pt>
 File: figures/reverse_shield/reverse_shield.pdf Graphic file (type pdf)
 <use figures/reverse_shield/reverse_shield.pdf>
 Package pdftex.def Info: figures/reverse_shield/reverse_shield.pdf  used on inp
-ut line 588.
-(pdftex.def)             Requested size: 313.64932pt x 213.42415pt.
- [6 <./figures/main_results/two_prompt_grid.pdf>] [7 <./figures/reverse_shield/
-reverse_shield.pdf>] (./main.bbl
+ut line 599.
+(pdftex.def)             Requested size: 239.39438pt x 162.89001pt.
+ [7 <./figures/reverse_shield/reverse_shield.pdf>] (./main.bbl
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [8])
@@ -457,7 +463,7 @@ Here is how much of TeX's memory you used:
  29314 multiletter control sequences out of 15000+600000
  606709 words of font info for 72 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
- 95i,11n,117p,351b,366s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 95i,11n,117p,351b,404s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texli
@@ -468,7 +474,7 @@ ype1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/newtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztm
 bi.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/s
 hare/texlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on main.pdf (9 pages, 6599855 bytes).
+Output written on main.pdf (9 pages, 6603349 bytes).
 PDF statistics:
  287 PDF objects out of 1000 (max. 8388607)
  126 compressed objects within 2 object streams
