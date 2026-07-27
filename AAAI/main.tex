@@ -616,6 +616,39 @@ preservation. \textbf{Guidance weight.} Sweeping $\alpha$ leaves outputs
 unchanged, confirming rms-normalization removes scale --- the direction is the
 signal.
 
+\subsection{Evaluation Robustness and Failure Modes}
+
+\textbf{The Agent audit is judge-robust.} To reduce dependence on a single model
+family, a third VLM (a local Gemma-4-family checkpoint) re-scored the 95
+calibration outputs. It agrees moderately with both Gemini judges (Pearson
+$0.59$--$0.69$; at least $82\%$ of ratings fall within one point) and, decisively,
+passes the pre-specified wrong-reference control: its mean style score drops from
+$4.21$ for the correct reference to $1.33$ for a reproducibly assigned wrong
+reference, and it scores the correct reference higher on $89.5\%$ of outputs. The
+audit therefore reads reference-specific style rather than assigning uniformly
+high scores; it remains a judge-robustness test, not a human study.
+
+\textbf{Where TSD gives up subject alignment.} The trade-off concentrates on
+subject-heavy references. On the portrait prompt the spear over-stylizes the
+face and CLIP-T falls by up to $\approx 0.08$; on already-graphic references the
+medium is near-saturated, so the gain is neutral rather than negative. In Global
+transfer the medium survives while composition dissolves, yet the reference
+layout is retained more than in the native new-composition edit --- the honest
+cost of transferring more style, visible as the higher layout-leak in
+Table~\ref{tab:benchmark}. None of these is a scoring artifact; each is the same
+style--subject trade-off the frontier is built to expose, which is why we report
+paired axes rather than a single style score.
+
+\textbf{Cost.} TSD is training-free of weights but optimization-based at
+inference: the reported settings run five inner latent updates per reverse step
+(Semantic) or a few-step schedule (Global), adding compute over a plain sample
+while training nothing. Memory is dominated by the frozen backbone, so a single
+generation fits in about $24$\,GB and completes in roughly a minute on one GPU;
+we optimize only the current latent and keep no auxiliary network. All reported
+numbers use a fixed seed ($65$), so the error bars measure cross-style
+dispersion rather than seed noise; a paired multi-seed extension is specified in
+the released protocol.
+
 \section{Conclusion}
 
 Training-free style transfer on a frozen transformer is a single
@@ -625,8 +658,12 @@ latent step. Its non-obvious ingredient is an empirical \emph{regularization
 substitution}: interleaving bounded updates with the frozen reverse trajectory
 removes any need for a learned fake-score network in the evaluated regime.
 Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
-strongest native edit, at a modest subject-alignment cost.
+strongest native edit, at a modest subject-alignment cost. More broadly, in the
+single-sample, frozen-model regime the ordinary inference dynamics can stand in
+for a learned regularizer --- a substitution worth testing wherever a
+distribution-matching objective would otherwise pay for an auxiliary network.
 
+\newpage
 \setlength{\bibsep}{4.5pt}
 \bibliography{references}
 
