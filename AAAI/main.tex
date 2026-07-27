@@ -495,6 +495,22 @@ prompts are in Figure~\ref{fig:dense-grid}.}
 \label{fig:mainresults}
 \end{figure}
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{main_results/two_prompt_grid.pdf}
+\caption{\textbf{The medium transfers across content, not just one subject.}
+Five media-diverse styles (rows) are each applied to two very different content
+prompts --- a panda and a lighthouse. The leftmost column is the shared style
+reference; within each content block the columns are the two matched native
+edits (keep-/new-composition) and TSD Semantic / TSD Global. TSD renders
+\emph{both} subjects in the reference medium, whereas the native image+text
+edits default to a generic realistic rendering that ignores the medium. Seeds
+are selected per cell from $\{65,202,777\}$ for legibility; all quantitative
+results use fixed seed 65. Four further content prompts appear in the
+supplement.}
+\label{fig:dense-grid}
+\end{figure*}
+
 \textbf{Result (40 styles).} Even at its best, the native edit is dominated
 on style fidelity by a wide margin across references (Table~\ref{tab:benchmark}). TSD
 reaches CSD \textbf{0.72 $\pm$ 0.08} (semantic) and \textbf{0.61 $\pm$ 0.09}
@@ -564,22 +580,6 @@ prompts, but on the \emph{portrait} prompt our CLIP-T falls further (gap up to
 $\approx 0.08$) as the spear over-stylizes the face --- the same honest
 trade-off, more visible where subject identity is strong.
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{main_results/two_prompt_grid.pdf}
-\caption{\textbf{The medium transfers across content, not just one subject.}
-Five media-diverse styles (rows) are each applied to two very different content
-prompts --- a panda and a lighthouse. The leftmost column is the shared style
-reference; within each content block the columns are the two matched native
-edits (keep-/new-composition) and TSD Semantic / TSD Global. TSD renders
-\emph{both} subjects in the reference medium, whereas the native image+text
-edits default to a generic realistic rendering that ignores the medium. Seeds
-are selected per cell from $\{65,202,777\}$ for legibility; all quantitative
-results use fixed seed 65. Four further content prompts appear in the
-supplement.}
-\label{fig:dense-grid}
-\end{figure*}
-
 \subsection{Ablations}
 
 \textbf{The frozen reverse step is load-bearing.} We scale the scheduler
@@ -611,11 +611,6 @@ substitution}: interleaving bounded updates with the frozen reverse trajectory
 removes any need for a learned fake-score network in the evaluated regime.
 Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
 strongest native edit, at a modest subject-alignment cost.
-
-\paragraph{Limitations.} TSD is training-free of weights but optimization-based
-at test time, and our comparison isolates what it adds to the \emph{same frozen
-model's} strongest native edit rather than claiming a cross-backbone
-leaderboard; K/V-based faithful-motif reproduction is out of scope.
 
 \setlength{\bibsep}{4.5pt}
 \bibliography{references}
