@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:58
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 13:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -267,29 +267,27 @@ LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
 \actualheight=\skip53
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
 (Font)              scaled to size 9.0pt on input line 26.
-
-(./reproducibility.tex
 \c@checksubsection=\count281
 \c@checkitem=\count282
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 10.0pt on input line 36.
+(Font)              scaled to size 10.0pt on input line 61.
 
-Underfull \hbox (badness 2334) in paragraph at lines 51--53
+Underfull \hbox (badness 2334) in paragraph at lines 76--78
 []\T1/ntxtlf/m/n/10 Does this pa-per make the-o-ret-i-cal con-tri-bu-tions?
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 63--65
+Underfull \hbox (badness 10000) in paragraph at lines 88--90
 []\T1/ntxtlf/m/n/10 Proofs of all novel claims are in-cluded
  []
 
 
-Underfull \hbox (badness 3199) in paragraph at lines 90--92
+Underfull \hbox (badness 3199) in paragraph at lines 115--117
 []\T1/ntxtlf/m/n/10 A mo-ti-va-tion is given for why the ex-per-i-
  []
 
 
-Underfull \hbox (badness 1735) in paragraph at lines 90--92
+Underfull \hbox (badness 1735) in paragraph at lines 115--117
 \T1/ntxtlf/m/n/10 ments are con-ducted on the se-lected datasets
  []
 
@@ -299,16 +297,16 @@ dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc}
 
 
 ]
-Underfull \hbox (badness 1082) in paragraph at lines 135--137
+Underfull \hbox (badness 1082) in paragraph at lines 160--162
 \T1/ntxtlf/m/n/10 method used for set-ting seeds is de-scribed in
  []
 
 
-Underfull \hbox (badness 2990) in paragraph at lines 147--149
+Underfull \hbox (badness 2990) in paragraph at lines 172--174
 []\T1/ntxtlf/m/n/10 Analysis of ex-per-i-ments goes be-yond single-
  []
 
-) [2
+[2
 
 ] (./checklist.aux)
  ***********
@@ -317,10 +315,10 @@ L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 5744 strings out of 475589
- 94357 string characters out of 5782861
+ 5736 strings out of 475589
+ 94165 string characters out of 5782861
  1937975 words of memory out of 5000000
- 27846 multiletter control sequences out of 15000+600000
+ 27841 multiletter control sequences out of 15000+600000
  578938 words of font info for 44 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
  95i,5n,117p,356b,273s stack positions out of 10000i,1000n,20000p,200000b,200000s
