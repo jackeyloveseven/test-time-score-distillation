@@ -320,7 +320,29 @@ edit. The table is split into two 20-style blocks for compactness.}
 The table exposes the full support of the 40/40 claim, including styles on
 which the native CSD cosine is near zero. The machine-readable benchmark file
 also contains per-style CLIP-T, layout leak, DINO similarity, VGG-Gram
-distance, and CSD+ values for all four methods.
+distance, and CSD+ values for all four methods. Figures~\ref{fig:supp-matrix1}
+and~\ref{fig:supp-matrix2} give the qualitative counterpart: every one of the 40
+styles under all four methods, in the same layout as the main-paper figure.
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=\textwidth]{main_results/full_style_matrix_1.pdf}
+\caption{\textbf{Full qualitative benchmark, styles 00--19} (two side-by-side
+blocks). Each row is a benchmark style; columns are the reference, the two
+matched native edits (Nat.\ keep- / new-composition), and TSD Semantic / TSD
+Global, all on the fixed ``panda eating bamboo'' prompt at seed 65 --- the exact
+outputs behind Table~\ref{tab:supp-per-style}. TSD renders the panda in every
+reference medium, whereas the native edits keep a generic realistic panda.}
+\label{fig:supp-matrix1}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=\textwidth]{main_results/full_style_matrix_2.pdf}
+\caption{\textbf{Full qualitative benchmark, styles 20--39} (two side-by-side
+blocks). Columns and conditions are as in Figure~\ref{fig:supp-matrix1}.}
+\label{fig:supp-matrix2}
+\end{figure*}
 
 \FloatBarrier
 
