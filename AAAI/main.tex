@@ -582,9 +582,23 @@ trade-off, more visible where subject identity is strong.
 
 \subsection{Ablations}
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{reverse_shield/reverse_shield.pdf}
+\caption{\textbf{The frozen reverse step is the regularizer.} Scaling the frozen
+scheduler displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by
+$\rho\in\{1,0.5,0\}$ at a fixed task update (two representative styles). At
+$\rho=1$ (the original reverse process) the stylization is clean; at $\rho=0$ the
+scheduler is still evaluated but its displacement is withheld, so the
+fixed-magnitude task updates alone drive the latent off-distribution into noise;
+$\rho=0.5$ interpolates. The collapse is style-independent (all five styles in
+the supplement).}
+\label{fig:reverseshield}
+\end{figure*}
+
 \textbf{The frozen reverse step is load-bearing.} We scale the scheduler
 displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by $\rho\in\{1,0.5,0\}$
-at a fixed task update (supplement, all five styles). At $\rho=0$ the model is
+at a fixed task update (Figure~\ref{fig:reverseshield}). At $\rho=0$ the model is
 still evaluated but its displacement withheld, so the task updates alone drive
 the latent and every style drifts off-distribution into noise; $\rho=0.5$
 partially degrades. This is not merely disabling the sampler --- the task
