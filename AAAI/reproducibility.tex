@@ -1,80 +1,158 @@
+% AAAI-2027 Reproducibility Checklist, filled from the official
+% AuthorKit27/ReproducibilityChecklist.tex question set. Answers are in blue.
+% This file is \input at the end of the technical appendix (supplement).
+\setlength{\leftmargini}{20pt}
+\makeatletter\def\@listi{\leftmargin\leftmargini \topsep .5em \parsep .5em \itemsep .5em}
+\def\@listii{\leftmargin\leftmarginii \labelwidth\leftmarginii \advance\labelwidth-\labelsep \topsep .4em \parsep .4em \itemsep .4em}
+\def\@listiii{\leftmargin\leftmarginiii \labelwidth\leftmarginiii \advance\labelwidth-\labelsep \topsep .4em \parsep .4em \itemsep .4em}\makeatother
+
+\renewcommand\thesubsection{\arabic{subsection}}
+\renewcommand\labelenumi{\thesubsection.\arabic{enumi}}
+
+\newcounter{checksubsection}
+\newcounter{checkitem}[checksubsection]
+\makeatletter
+\newcommand{\checksubsection}[1]{%
+  \refstepcounter{checksubsection}%
+  \paragraph{\arabic{checksubsection}. #1}%
+  \setcounter{checkitem}{0}%
+}
+\newcommand{\checkitem}{%
+  \refstepcounter{checkitem}%
+  \item[\arabic{checksubsection}.\arabic{checkitem}.]%
+}
+\makeatother
+\newcommand{\question}[2]{\normalcolor\checkitem #1 #2 \color{blue}}
+\newcommand{\ifyespoints}[1]{\makebox[0pt][l]{\hspace{-15pt}\normalcolor #1}}
+
 \section{Reproducibility Checklist}
-\small
 
-This paper follows the AAAI reproducibility checklist. Unless noted, section and
-figure references point to the main paper; ``released code'' refers to the
-anonymized code and manifests accompanying this submission.
+This section reports our responses to the AAAI-2027 reproducibility checklist;
+answers appear in \textcolor{blue}{blue}. Unless noted, ``released code'' refers
+to the anonymized code, benchmark protocol, and manifests accompanying this
+submission, and section/figure references point to the main paper.
 
-\paragraph{General.}
-\begin{itemize}\itemsep1pt
-\item Conceptual outline / pseudocode of the AI methods introduced: \textbf{yes}
-(Method \S3; pseudocode in the Algorithm subsection of this appendix).
-\item Delineates opinions / hypotheses / speculation from objective facts:
-\textbf{yes} (the regularization substitution is stated as an empirical finding,
-not a theorem; boundaries stated in Limitations).
-\item Well-marked pedagogical references for less-familiar readers: \textbf{yes}
-(rectified flow, classifier-free guidance, distribution-matching distillation,
-and classical style transfer are cited).
+\checksubsection{General Paper Structure}
+\begin{itemize}
+
+\question{Includes a conceptual outline and/or pseudocode description of AI methods introduced}{(yes/partial/no/NA)}
+yes
+
+\question{Clearly delineates statements that are opinions, hypothesis, and speculation from objective facts and results}{(yes/no)}
+yes
+
+\question{Provides well-marked pedagogical references for less-familiar readers to gain background necessary to replicate the paper}{(yes/no)}
+yes
+
+\end{itemize}
+\checksubsection{Theoretical Contributions}
+\begin{itemize}
+
+\question{Does this paper make theoretical contributions?}{(yes/no)}
+no
+
+	\ifyespoints{\vspace{1.2em}If yes, please address the following points:}
+        \begin{itemize}
+
+	\question{All assumptions and restrictions are stated clearly and formally}{(yes/partial/no)}
+	NA
+
+	\question{All novel claims are stated formally (e.g., in theorem statements)}{(yes/partial/no)}
+	NA
+
+	\question{Proofs of all novel claims are included}{(yes/partial/no)}
+	NA
+
+	\question{Proof sketches or intuitions are given for complex and/or novel results}{(yes/partial/no)}
+	NA
+
+	\question{Appropriate citations to theoretical tools used are given}{(yes/partial/no)}
+	NA
+
+	\question{All theoretical claims are demonstrated empirically to hold}{(yes/partial/no/NA)}
+	NA
+
+	\question{All experimental code used to eliminate or disprove claims is included}{(yes/no/NA)}
+	NA
+
+	\end{itemize}
 \end{itemize}
 
-\paragraph{Theoretical contributions.} The paper makes no formal theoretical
-contribution (\textbf{no}). Its claims are empirical by design; the
-velocity-contrast$=$score-difference relation used in \S3 is a derivation from
-standard tools with citations, and the reverse-process regularization is
-explicitly an empirical finding (\S Conclusion), not a theorem. Accordingly the
-theorem/proof items are not applicable; the corresponding empirical evidence
-(reverse-step ablation, fake-score negative study, rejected SRSD metric) and its
-code are included.
+\checksubsection{Dataset Usage}
+\begin{itemize}
 
-\paragraph{Datasets.} The paper relies on a fixed style-reference set (\textbf{yes}).
-\begin{itemize}\itemsep1pt
-\item Motivation for the selected data: \textbf{yes} (a media-diverse
-40-reference library isolates medium transfer across style locality).
-\item Novel data included in a data appendix: \textbf{partial} (style IDs,
-prompts, seeds, candidate order, and evaluator inputs are retained in
-machine-readable manifests in the released code; reference images are model-
-generated and described).
-\item Novel data public on publication with a license: \textbf{partial}
-(intended; redistribution and license terms to be finalized before release).
-\item Existing-literature datasets cited / public: \textbf{NA} (no external
-benchmark dataset is used; the reference set and content prompt are constructed
-here).
-\item Non-public data described in detail: \textbf{yes} (all style IDs, the
-content prompt, seeds, and evaluator inputs are specified).
+\question{Does this paper rely on one or more datasets?}{(yes/no)}
+yes
+
+\ifyespoints{If yes, please address the following points:}
+\begin{itemize}
+
+	\question{A motivation is given for why the experiments are conducted on the selected datasets}{(yes/partial/no/NA)}
+	yes
+
+	\question{All novel datasets introduced in this paper are included in a data appendix}{(yes/partial/no/NA)}
+	partial
+
+	\question{All novel datasets introduced in this paper will be made publicly available upon publication of the paper with a license that allows free usage for research purposes}{(yes/partial/no/NA)}
+	partial
+
+	\question{All datasets drawn from the existing literature (potentially including authors' own previously published work) are accompanied by appropriate citations}{(yes/no/NA)}
+	NA
+
+	\question{All datasets drawn from the existing literature (potentially including authors' own previously published work) are publicly available}{(yes/partial/no/NA)}
+	NA
+
+	\question{All datasets that are not publicly available are described in detail, with explanation why publicly available alternatives are not scientifically satisficing}{(yes/partial/no/NA)}
+	yes
+
+\end{itemize}
 \end{itemize}
 
-\paragraph{Computational experiments.} The paper includes computational
-experiments (\textbf{yes}).
-\begin{itemize}\itemsep1pt
-\item Number and range of (hyper-)parameter values tried during development:
-\textbf{yes} (the parameter study sweeps step count, inner iterations, step
-size, and normalization; grids in this appendix).
-\item Pre-processing code included: \textbf{partial} (generation and evaluation
-code is in the released code; pre-processing is minimal).
-\item All source code for running and analyzing experiments included:
-\textbf{partial} (released with the submission; generation, matched native
-baseline, sweeps, the reverse-step ablation, Agent evaluation, aggregation, and
-figure/table builds are covered).
-\item Source code public on publication with a license: \textbf{yes} (intended).
-\item New-method code has comments referencing the paper: \textbf{partial}.
-\item Method for setting seeds described: \textbf{yes} (a single fixed seed, 65,
-is used throughout and stated).
-\item Computing infrastructure specified: \textbf{partial} (single-GPU
-inference, bf16, AdamW with zero latent weight decay; exact library versions are
-pinned in the released environment).
-\item Evaluation metrics formally described with motivation: \textbf{yes} (CSD,
-CLIP-T, and layout-leak are defined and motivated as separable style / subject /
-composition axes; \S4).
-\item Number of algorithm runs per reported result stated: \textbf{yes}
-(fixed-seed; one run per task$\times$style cell over $n=40$ references).
-\item Analysis beyond single-number summaries: \textbf{yes} (per-style values,
-cross-style SD, 95\% style-bootstrap intervals, 40/40 paired-win counts, and the
-CSD--CLIP-T frontier).
-\item Significance judged with appropriate statistical tests: \textbf{partial}
-(style-bootstrap confidence intervals, paired-win counts, and cross-Agent
-correlation statistics; we do not run a formal null-hypothesis test on the main
-metric and we do not claim random-seed uncertainty).
-\item All final (hyper-)parameters listed: \textbf{yes} (per-mode step count,
-inner iterations, step size, and normalization are tabulated in this appendix).
+\checksubsection{Computational Experiments}
+\begin{itemize}
+
+\question{Does this paper include computational experiments?}{(yes/no)}
+yes
+
+\ifyespoints{If yes, please address the following points:}
+\begin{itemize}
+
+	\question{This paper states the number and range of values tried per (hyper-) parameter during development of the paper, along with the criterion used for selecting the final parameter setting}{(yes/partial/no/NA)}
+	yes
+
+	\question{Any code required for pre-processing data is included in the appendix}{(yes/partial/no)}
+	partial
+
+	\question{All source code required for conducting and analyzing the experiments is included in a code appendix}{(yes/partial/no)}
+	partial
+
+	\question{All source code required for conducting and analyzing the experiments will be made publicly available upon publication of the paper with a license that allows free usage for research purposes}{(yes/partial/no)}
+	yes
+
+	\question{All source code implementing new methods have comments detailing the implementation, with references to the paper where each step comes from}{(yes/partial/no)}
+	partial
+
+	\question{If an algorithm depends on randomness, then the method used for setting seeds is described in a way sufficient to allow replication of results}{(yes/partial/no/NA)}
+	yes
+
+	\question{This paper specifies the computing infrastructure used for running experiments (hardware and software), including GPU/CPU models; amount of memory; operating system; names and versions of relevant software libraries and frameworks}{(yes/partial/no)}
+	partial
+
+	\question{This paper formally describes evaluation metrics used and explains the motivation for choosing these metrics}{(yes/partial/no)}
+	yes
+
+	\question{This paper states the number of algorithm runs used to compute each reported result}{(yes/no)}
+	yes
+
+	\question{Analysis of experiments goes beyond single-dimensional summaries of performance (e.g., average; median) to include measures of variation, confidence, or other distributional information}{(yes/no)}
+	yes
+
+	\question{The significance of any improvement or decrease in performance is judged using appropriate statistical tests (e.g., Wilcoxon signed-rank)}{(yes/partial/no)}
+	partial
+
+	\question{This paper lists all final (hyper-)parameters used for each model/algorithm in the paper's experiments}{(yes/partial/no/NA)}
+	yes
+
 \end{itemize}
-\normalsize
+\end{itemize}
+\normalcolor
