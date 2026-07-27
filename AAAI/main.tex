@@ -362,17 +362,6 @@ covers all 80 paired task--style cells; a secondary model audits 68 cells, and
 failed API responses are not imputed. Prompts, raw responses, bootstrap
 intervals, and judge controls are provided in the supplement.
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.90\textwidth]{agent_multidim_radar/agent_multidim_radar.pdf}
-\caption{\textbf{Task-aware multi-dimensional Agent evaluation.} Anonymous
-candidate pairs are rated on six 1--5 axes. Semantic locality measures
-reference-composition preservation; Global locality measures composition
-independence. Curves are means over 40 styles and radial whiskers are 95\%
-bootstrap intervals. The radar area is not used as a scalar score.}
-\label{fig:agent-radar}
-\end{figure*}
-
 \textbf{The Agent results localize the gain instead of hiding the cost.}
 TSD is preferred in 39/40 Semantic and 37/40 Global pairs. Relative to the
 matched native edit, its mean gains on medium, texture, and palette are
@@ -498,13 +487,27 @@ Native new-comp. & .247 $\pm$ .155 & .315 $\pm$ .011 & .299 $\pm$ .064 \\
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.88\textwidth]{main_results/main_results.pdf}
+\includegraphics[width=0.82\textwidth]{main_results/main_results.pdf}
 \caption{\textbf{TSD improves style fidelity across two locality regimes.}
 (a) All 40 paired CSD gains are positive. (b) CSD--CLIP-T frontier at fixed
-seed 65 ($n=40$; mean $\pm$ cross-style SD). (c) Representative outputs (seed
-selected per style from $\{65,202,777\}$ for legibility; the quantitative
-panels use fixed seed 65 throughout); the full grid is in the supplement.}
+seed 65 ($n=40$; mean $\pm$ cross-style SD). Qualitative outputs across ten
+styles are in Figure~\ref{fig:dense-grid}.}
 \label{fig:mainresults}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[height=0.92\textheight]{main_results/dense_grid.pdf}
+\caption{\textbf{Dense qualitative comparison across ten fixed styles.} Each row
+is a fixed reference medium (graphic, painterly, relief, mosaic, and
+stained-glass styles); columns show the reference, the two matched native edits
+(keep-/new-composition), and TSD Semantic / TSD Global. All outputs use the same
+``panda eating bamboo'' prompt. For each cell the seed is selected per style
+from $\{65,202,777\}$ for legibility; all quantitative results use fixed seed 65
+throughout. TSD renders the reference medium in both modes, whereas the native
+image+text edits default to a generic realistic panda that ignores the
+reference style.}
+\label{fig:dense-grid}
 \end{figure*}
 
 \textbf{Result (40 styles).} Even at its best, the native edit is dominated
@@ -531,7 +534,7 @@ styles, succeeding on genuinely
 relief-like media (\eg, bronze) and reverting to a \emph{generic}
 engraving/line-art look elsewhere, missing the specific
 tesserae/impasto/halftone/leading that TSD transfers consistently
-(Figure~\ref{fig:mainresults}c). Finally,
+(Figure~\ref{fig:dense-grid}). Finally,
 when instructed to change composition, the native edit \emph{loses the
 medium} (its new-composition variant scores CSD 0.25, below its own
 composition-preserving 0.27), whereas TSD's step-knob dissolves composition
@@ -578,22 +581,9 @@ trade-off, more visible where subject identity is strong.
 
 \subsection{Ablations}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{reverse_shield/reverse_shield.pdf}
-\caption{\textbf{The frozen reverse step is the regularizer.} We scale the
-frozen scheduler displacement, $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$, at
-a fixed task update. At $\rho=1$ (the original reverse process) the stylization
-is clean; at $\rho=0$ the model is still evaluated but its displacement is
-withheld, so only the fixed-magnitude task updates move the latent, which drifts
-to noise; $\rho=0.5$ interpolates. The collapse is style-independent (all five
-styles in the supplement).}
-\label{fig:reverseshield}
-\end{figure}
-
 \textbf{The frozen reverse step is load-bearing.} We scale the scheduler
 displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by $\rho\in\{1,0.5,0\}$
-at a fixed task update (Figure~\ref{fig:reverseshield}). At $\rho=0$ the model is
+at a fixed task update (supplement, all five styles). At $\rho=0$ the model is
 still evaluated but its displacement withheld, so the task updates alone drive
 the latent and every style drifts off-distribution into noise; $\rho=0.5$
 partially degrades. This is not merely disabling the sampler --- the task
@@ -612,18 +602,14 @@ signal.
 
 \section{Conclusion}
 
-Training-free style transfer on a frozen transformer is one controllable
-\emph{style-locality} axis served by a single operator: the CFG-augmentation
-spear of decoupled distribution matching, applied as a fixed-magnitude
-rms-normalized latent step --- the full spear for Semantic Style Editing, fewer
-reverse steps for Global Style Transfer. Its one non-obvious ingredient is an
-empirical \emph{regularization substitution}: interleaving bounded updates with
-the frozen reverse trajectory removes any need for a learned fake-score network
-in the evaluated regime. Across 40 styles this improves mean CSD by
-2.48--2.69$\times$ over the same model's strongest native edit, at a modest
-subject-alignment cost, and dissolves composition without discarding the
-reference medium --- gains the Agent audit localizes to medium, mark-making,
-and palette rather than an unqualified quality claim.
+Training-free style transfer on a frozen transformer is a single
+\emph{style-locality} axis served by one operator: the CFG-augmentation spear of
+decoupled distribution matching, applied as a fixed-magnitude rms-normalized
+latent step. Its non-obvious ingredient is an empirical \emph{regularization
+substitution}: interleaving bounded updates with the frozen reverse trajectory
+removes any need for a learned fake-score network in the evaluated regime.
+Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
+strongest native edit, at a modest subject-alignment cost.
 
 \paragraph{Limitations (Stated Plainly).} TSD is training-free of weights but
 optimization-based at test time (a few latent iterations per step); we do not
