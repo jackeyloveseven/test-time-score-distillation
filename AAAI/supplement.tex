@@ -73,19 +73,14 @@ distribution matching.
 
 \subsection{Algorithm}
 
-For each reverse timestep, the implementation performs the following sequence:
-\begin{enumerate}
-\item evaluate the frozen reference-conditioned and reference-free branches on
-the same current latent;
-\item compute and rms-normalize the conditional contrast in
-Eq.~\ref{eq:supp-contrast};
-\item construct a detached $x_0$ pseudo-target at distance $\eta$;
-\item update only $z_t$ for the configured number of inner iterations; and
-\item call the frozen scheduler once to obtain $z_{t-1}$.
-\end{enumerate}
-Rms normalization makes any positive scalar multiplying $g_t$ algebraically
-inert. The effective controls are therefore the reverse-step count, inner
-iteration count, pseudo-step size $\eta$, and normalization granularity.
+The inference loop is given as Algorithm~1 in the main paper; we do not repeat it
+here. Two implementation-exact points matter for replication. First, the task
+target is a \emph{detached} $x_0$ pseudo-target at distance $\eta$ from the
+current denoised estimate --- not a raw velocity gradient --- and the conditional
+contrast (Eq.~\ref{eq:supp-contrast}) is rms-normalized, which makes any positive
+scalar multiplying $g_t$ algebraically inert. Second, the effective controls are
+therefore only the reverse-step count, the inner-iteration count, the pseudo-step
+size $\eta$, and the normalization granularity.
 
 \section{Evaluation Protocol}
 
@@ -178,9 +173,9 @@ Across the three style axes, TSD gains 2.5--2.9 points over the matched native
 edit. Subject fidelity decreases by approximately 0.6 points in both modes.
 Semantic locality improves by 3.45 points, whereas Global composition
 independence decreases by 1.63 points; this is the perceptual counterpart of
-the measured layout-leak trade-off. On the 68 shared cells, the two Agents agree
-on the preferred method in 68/68 cases. Pearson correlations are 0.957 for
-medium, 0.960 for texture, 0.977 for palette, and 0.925 for task locality. The
+the measured layout-leak trade-off. Beyond the preferred-method agreement noted
+in the main paper, the two Agents' per-axis Pearson correlations are 0.957
+(medium), 0.960 (texture), 0.977 (palette), and 0.925 (task locality). The
 visual-quality score is less rank-stable ($r=0.431$), although 99.3\% of paired
 ratings remain within one point.
 
@@ -198,27 +193,18 @@ for human evaluation.
 We additionally compare against the public Qwen-Image-Edit-2511 and
 FireRed-Image-Edit-1.1 checkpoints. This audit reuses the five style IDs fixed
 beforehand by the qualitative figure (00, 09, 10, 23, and 34); no result-based
-style selection is performed. Each public editor receives the raw reference,
-the same panda request, seed 65, 40 inference steps, true CFG 4.0, and an
-explicit Semantic or Global composition instruction. For every task--style
+style selection is performed. Beyond the matched inputs stated with the
+main-paper audit table, each public editor is run at 40 inference steps and true
+CFG 4.0. For every task--style
 cell, the Agent sees the reference followed by four anonymous, deterministically
 randomized candidates: TSD, native MMDiT, FireRed, and Qwen. It scores the same
 six axes jointly. Because the public systems use different backbones and were
 trained for general editing, this is a matched-input perceptual stress test,
 not a compute- or architecture-matched leaderboard.
 
-\begingroup
-\centering
-\captionof{table}{Primary-Agent scores for the targeted public-editor audit.
-Entries are means over five fixed styles on a 1--5 scale.}
-\label{tab:supp-external-audit}
-\scriptsize
-\setlength{\tabcolsep}{2.0pt}
-\resizebox{\columnwidth}{!}{%
-\input{supplement/tables/external_model_audit.tex}%
-}
-\par
-\endgroup
+The primary-Agent means for this audit are reported as the public-editor audit
+table in the main paper and are not repeated here; below we give the extended
+per-axis cross-Agent analysis that the main paper omits for space.
 
 \paragraph{Results and boundary.}
 For Semantic editing, TSD averages 4.60 over medium, texture, and palette,
@@ -279,17 +265,16 @@ CSD max: 8 iter., $\eta=.08$, token & .823 & .206 & .823 \\
 
 \subsection{Independent Third-Judge Validation}
 
-To reduce dependence on two judges from the same model family, we evaluated
-the same 95 calibration outputs with a third VLM served from a local
-Gemma-4-family checkpoint. The local judge shows moderate agreement with
+The main paper summarizes the third-judge wrong-reference control; here we give
+the per-judge detail it omits. To reduce dependence on two judges from the same
+model family, we re-scored the same 95 calibration outputs with a third VLM
+served from a local Gemma-4-family checkpoint. It shows moderate agreement with
 Gemini-Pro (Pearson $r=0.694$, Spearman $\rho=0.657$) and Gemini-Flash
-($r=0.588$, $\rho=0.507$); 82.1\% and 84.2\% of ratings, respectively, differ
-by at most one point. More importantly, it passes the pre-specified
-wrong-reference control: the mean style score falls from 4.21 for the correct
-reference to 1.33 for a reproducibly assigned wrong reference, and the correct
-reference scores higher for 89.5\% of outputs. This establishes that the third
-channel reads reference-specific style rather than assigning uniformly high
-scores. It remains a judge-robustness test, not human validation.
+($r=0.588$, $\rho=0.507$); 82.1\% and 84.2\% of ratings, respectively, differ by
+at most one point. Figure~\ref{fig:supp-open-judge} plots the pairwise
+correlations, the correct- versus wrong-reference style scores, and the
+within-one-point agreement rates. These controls support judge robustness, but
+do not replace human evaluation.
 
 \begin{figure*}[t]
 \centering

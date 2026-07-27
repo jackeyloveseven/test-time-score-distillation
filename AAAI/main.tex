@@ -13,6 +13,8 @@
 
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 \graphicspath{{figures/}}
 
 \newcommand{\vel}{v}
@@ -299,6 +301,29 @@ the step size $\eta$ affect the output. Second, a fixed-magnitude step is an
 whereas minimizing $\lVert g\rVert^2$ would \emph{interpolate to} that fixed
 point and saturate early; the former transfers structured texture the latter
 misses while preserving content.
+
+\begin{algorithm}[t]
+\caption{TSD inference (one style transfer)}
+\label{alg:tsd}
+\begin{algorithmic}[1]
+\REQUIRE frozen model, reference image, prompt; reverse steps $T$, inner
+iterations $K$, step size $\eta$
+\STATE start from a noisy latent $z_T$
+\FOR{reverse step $t = T$ \TO $1$}
+  \FOR{$k = 1$ \TO $K$}
+    \STATE read the model's velocity \emph{with} the reference
+    ($v_{\text{with}}$) and \emph{without} it ($v_{\text{without}}$)
+    \STATE $\mathrm{spear}\gets$ direction of
+    $(v_{\text{with}}-v_{\text{without}})$ \hfill// the style signal
+    \STATE nudge $z_t$ one small step $\eta$ along the spear
+    \hfill// change the latent only
+  \ENDFOR
+  \STATE take one ordinary frozen reverse step to get $z_{t-1}$
+  \hfill// the only regularizer
+\ENDFOR
+\RETURN the image decoded from $z_0$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{Style Locality: One Operator, Two Modes, One Free Knob}
 

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 11:49
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:09
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -300,45 +300,69 @@ Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
 \@lastruleclass=\count286
 \@thisrulewidth=\dimen186
 )
+(/usr/share/texlive/texmf-dist/tex/latex/algorithms/algorithm.sty
+Package: algorithm 2009/08/24 v0.1 Document Style `algorithm' - floating enviro
+nment
+
+(/usr/share/texlive/texmf-dist/tex/latex/float/float.sty
+Package: float 2001/11/08 v1.3d Float enhancements (AL)
+\c@float@type=\count287
+\float@exts=\toks24
+\float@box=\box54
+\@float@everytoks=\toks25
+\@floatcapt=\box55
+)
+\@float@every@algorithm=\toks26
+\c@algorithm=\count288
+)
+(/usr/share/texlive/texmf-dist/tex/latex/algorithms/algorithmic.sty
+Package: algorithmic 2009/08/24 v0.1 Document Style `algorithmic'
+\c@ALC@unique=\count289
+\c@ALC@line=\count290
+\c@ALC@rem=\count291
+\c@ALC@depth=\count292
+\ALC@tlm=\skip56
+\algorithmicindent=\skip57
+)
 LaTeX Font Info:    Trying to load font information for T1+ntxtlf on input line
- 43.
+ 45.
 
 (/usr/share/texlive/texmf-dist/tex/latex/newtx/t1ntxtlf.fd
 File: t1ntxtlf.fd 2021/05/24 v1.1 font definition file for T1/ntx/tlf
 )
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 10.0pt on input line 43.
+(Font)              scaled to size 10.0pt on input line 45.
  (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 45.
+LaTeX Font Info:    ... okay on input line 45.
 
 (/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count287
+\scratchcounter=\count293
 \scratchdimen=\dimen187
-\scratchbox=\box54
-\nofMPsegments=\count288
-\nofMParguments=\count289
-\everyMPshowfont=\toks24
-\MPscratchCnt=\count290
+\scratchbox=\box56
+\nofMPsegments=\count294
+\nofMParguments=\count295
+\everyMPshowfont=\toks27
+\MPscratchCnt=\count296
 \MPscratchDim=\dimen188
-\MPnumerator=\count291
-\makeMPintoPDFobject=\count292
-\everyMPtoPDFconversion=\toks25
+\MPnumerator=\count297
+\makeMPintoPDFobject=\count298
+\everyMPtoPDFconversion=\toks28
 ) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
@@ -348,32 +372,33 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-\c@mv@tabular=\count293
-\c@mv@boldtabular=\count294
+\c@mv@tabular=\count299
+\c@mv@boldtabular=\count300
 Package caption Info: Begin \AtBeginDocument code.
+Package caption Info: float package is loaded.
 Package caption Info: End \AtBeginDocument code.
-\c@aaai@eqfn=\count295
-\c@aaai@corrfn=\count296
-\titlearea=\box55
+\c@aaai@eqfn=\count301
+\c@aaai@corrfn=\count302
+\titlearea=\box57
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 14.4pt on input line 45.
+(Font)              scaled to size 14.4pt on input line 47.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 14.4pt on input line 45.
+(Font)              scaled to size 14.4pt on input line 47.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 12.0pt on input line 45.
+(Font)              scaled to size 12.0pt on input line 47.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 12.0pt on input line 45.
-\actualheight=\skip56
+(Font)              scaled to size 12.0pt on input line 47.
+\actualheight=\skip58
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 9.0pt on input line 45.
+(Font)              scaled to size 9.0pt on input line 47.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 10.0pt on input line 47.
+(Font)              scaled to size 10.0pt on input line 49.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/it' will be
-(Font)              scaled to size 9.0pt on input line 51.
+(Font)              scaled to size 9.0pt on input line 53.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 9.0pt on input line 52.
+(Font)              scaled to size 9.0pt on input line 54.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/it' will be
-(Font)              scaled to size 10.0pt on input line 78.
+(Font)              scaled to size 10.0pt on input line 80.
 
 [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texlive/texmf-
 dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc}
@@ -381,13 +406,13 @@ dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc}
 
 
 ]
-LaTeX Font Info:    Trying to load font information for U+msa on input line 128
+LaTeX Font Info:    Trying to load font information for U+msa on input line 130
 .
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 128
+LaTeX Font Info:    Trying to load font information for U+msb on input line 130
 .
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
@@ -397,52 +422,52 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 File: figures/tsd_framework/tsd_framework.png Graphic file (type png)
 <use figures/tsd_framework/tsd_framework.png>
 Package pdftex.def Info: figures/tsd_framework/tsd_framework.png  used on input
- line 179.
+ line 181.
 (pdftex.def)             Requested size: 430.00958pt x 241.99742pt.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 7.0pt on input line 198.
+(Font)              scaled to size 7.0pt on input line 200.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 5.0pt on input line 198.
+(Font)              scaled to size 5.0pt on input line 200.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 10.95pt on input line 202.
+(Font)              scaled to size 10.95pt on input line 204.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 10.95pt on input line 202.
+(Font)              scaled to size 10.95pt on input line 204.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/it' will be
-(Font)              scaled to size 10.95pt on input line 246.
+(Font)              scaled to size 10.95pt on input line 248.
  [2]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3 <./figures/tsd_framework/tsd_framework.png (PNG copy)>]
 (./supplement/tables/external_model_audit.tex) [4]
-<figures/main_results/main_results.pdf, id=26, 304.66818pt x 147.03067pt>
+<figures/main_results/main_results.pdf, id=27, 304.66818pt x 147.03067pt>
 File: figures/main_results/main_results.pdf Graphic file (type pdf)
 <use figures/main_results/main_results.pdf>
 Package pdftex.def Info: figures/main_results/main_results.pdf  used on input l
-ine 501.
+ine 526.
 (pdftex.def)             Requested size: 239.39438pt x 115.53374pt.
-<figures/main_results/two_prompt_grid.pdf, id=27, 604.91823pt x 369.26566pt>
+<figures/main_results/two_prompt_grid.pdf, id=28, 604.91823pt x 369.26566pt>
 File: figures/main_results/two_prompt_grid.pdf Graphic file (type pdf)
 <use figures/main_results/two_prompt_grid.pdf>
 Package pdftex.def Info: figures/main_results/two_prompt_grid.pdf  used on inpu
-t line 511.
+t line 536.
 (pdftex.def)             Requested size: 505.89pt x 308.81746pt.
  [5 <./figures/main_results/main_results.pdf>]
-Underfull \hbox (badness 1033) in paragraph at lines 559--572
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 1033) in paragraph at lines 584--597
 []\T1/ntxtlf/b/n/10 Is the style-fidelity gap real style, or just more
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \vbox (badness 1221) has occurred while \output is active []
 
  [6 <./figures/main_results/two_prompt_grid.pdf>]
-<figures/reverse_shield/reverse_shield.pdf, id=178, 371.18065pt x 252.55956pt>
+<figures/reverse_shield/reverse_shield.pdf, id=179, 371.18065pt x 252.55956pt>
 File: figures/reverse_shield/reverse_shield.pdf Graphic file (type pdf)
 <use figures/reverse_shield/reverse_shield.pdf>
 Package pdftex.def Info: figures/reverse_shield/reverse_shield.pdf  used on inp
-ut line 599.
+ut line 624.
 (pdftex.def)             Requested size: 239.39438pt x 162.89001pt.
  [7 <./figures/reverse_shield/reverse_shield.pdf>] (./main.bbl
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -457,27 +482,28 @@ L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7265 strings out of 475589
- 116063 string characters out of 5782861
- 1950975 words of memory out of 5000000
- 29314 multiletter control sequences out of 15000+600000
+ 7537 strings out of 475589
+ 120272 string characters out of 5782861
+ 1951975 words of memory out of 5000000
+ 29575 multiletter control sequences out of 15000+600000
  606709 words of font info for 72 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
- 95i,11n,117p,351b,404s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 95i,11n,117p,351b,629s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texli
 ve/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/f
 onts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/t
-ype1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
-blic/newtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztm
-bi.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/s
-hare/texlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on main.pdf (9 pages, 6603349 bytes).
+ype1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ne
+wtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmbi.pfb>
+</usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/share/te
+xlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
+Output written on main.pdf (9 pages, 6613701 bytes).
 PDF statistics:
- 287 PDF objects out of 1000 (max. 8388607)
- 126 compressed objects within 2 object streams
+ 292 PDF objects out of 1000 (max. 8388607)
+ 129 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  21 words of extra memory for PDF output out of 10000 (max. 10000000)
 

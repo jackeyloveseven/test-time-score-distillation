@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 11:49
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 12:13
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -385,13 +385,15 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 45.
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
+LaTeX Font Info:    Font shape `T1/ntxtlf/m/it' will be
+(Font)              scaled to size 10.0pt on input line 78.
 <figures/external_model_audit/external_model_audit.pdf, id=1, 462.16919pt x 242
 .82944pt>
 File: figures/external_model_audit/external_model_audit.pdf Graphic file (type 
 pdf)
 <use figures/external_model_audit/external_model_audit.pdf>
 Package pdftex.def Info: figures/external_model_audit/external_model_audit.pdf 
- used on input line 117.
+ used on input line 112.
 (pdftex.def)             Requested size: 445.18567pt x 233.91023pt.
 <figures/agent_benchmark_pipeline/agent_benchmark_pipeline.png, id=2, 1461.46pt
  x 819.06pt>
@@ -399,7 +401,7 @@ File: figures/agent_benchmark_pipeline/agent_benchmark_pipeline.png Graphic fil
 e (type png)
 <use figures/agent_benchmark_pipeline/agent_benchmark_pipeline.png>
 Package pdftex.def Info: figures/agent_benchmark_pipeline/agent_benchmark_pipel
-ine.png  used on input line 130.
+ine.png  used on input line 125.
 (pdftex.def)             Requested size: 495.77003pt x 277.85182pt.
  [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texlive/texmf
 -dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc}
@@ -408,48 +410,44 @@ ine.png  used on input line 130.
 
 ]
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 7.0pt on input line 167.
+(Font)              scaled to size 7.0pt on input line 162.
  (./supplement/tables/agent_multidim.tex)
-Underfull \vbox (badness 1365) has occurred while \output is active []
+Underfull \vbox (badness 4531) has occurred while \output is active []
 
  [2 <./figures/external_model_audit/external_model_audit.pdf>]
-(./supplement/tables/external_model_audit.tex)
-<figures/external_model_qualitative/external_model_qualitative.png, id=43, 1278
+<figures/external_model_qualitative/external_model_qualitative.png, id=44, 1278
 .7775pt x 614.295pt>
 File: figures/external_model_qualitative/external_model_qualitative.png Graphic
  file (type png)
 <use figures/external_model_qualitative/external_model_qualitative.png>
 Package pdftex.def Info: figures/external_model_qualitative/external_model_qual
-itative.png  used on input line 241.
+itative.png  used on input line 227.
 (pdftex.def)             Requested size: 239.39438pt x 114.99255pt.
-<figures/paramgrid_csd_heatmap/paramgrid_csd_heatmap.pdf, id=44, 505.38176pt x 
+<figures/paramgrid_csd_heatmap/paramgrid_csd_heatmap.pdf, id=45, 505.38176pt x 
 356.22284pt>
 File: figures/paramgrid_csd_heatmap/paramgrid_csd_heatmap.pdf Graphic file (typ
 e pdf)
 <use figures/paramgrid_csd_heatmap/paramgrid_csd_heatmap.pdf>
 Package pdftex.def Info: figures/paramgrid_csd_heatmap/paramgrid_csd_heatmap.pd
-f  used on input line 252.
+f  used on input line 238.
 (pdftex.def)             Requested size: 475.53783pt x 335.18651pt.
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [3 <./figures/agent_benchmark_pipeline/agent_benchmark_pipeline.png (PNG copy)
->]
-<figures/open_judge_validation/open_judge_validation.pdf, id=48, 536.04655pt x 
+<figures/open_judge_validation/open_judge_validation.pdf, id=46, 536.04655pt x 
 154.95291pt>
 File: figures/open_judge_validation/open_judge_validation.pdf Graphic file (typ
 e pdf)
 <use figures/open_judge_validation/open_judge_validation.pdf>
 Package pdftex.def Info: figures/open_judge_validation/open_judge_validation.pd
-f  used on input line 296.
+f  used on input line 281.
 (pdftex.def)             Requested size: 465.41786pt x 134.53838pt.
-<figures/benchmark_40style_bar/benchmark_40style_bar.pdf, id=49, 498.48106pt x 
+ [3 <./figures/agent_benchmark_pipeline/agent_benchmark_pipeline.png (PNG copy)
+>]
+<figures/benchmark_40style_bar/benchmark_40style_bar.pdf, id=50, 498.48106pt x 
 238.10117pt>
 File: figures/benchmark_40style_bar/benchmark_40style_bar.pdf Graphic file (typ
 e pdf)
 <use figures/benchmark_40style_bar/benchmark_40style_bar.pdf>
 Package pdftex.def Info: figures/benchmark_40style_bar/benchmark_40style_bar.pd
-f  used on input line 317.
+f  used on input line 302.
 (pdftex.def)             Requested size: 470.47398pt x 224.72702pt.
 
 (./supplement/tables/benchmark_per_style.tex) [4 <./figures/external_model_qual
@@ -457,27 +455,27 @@ itative/external_model_qualitative.png (PNG copy)>] [5 <./figures/paramgrid_csd
 _heatmap/paramgrid_csd_heatmap.pdf> <./figures/open_judge_validation/open_judge
 _validation.pdf>] [6 <./figures/benchmark_40style_bar/benchmark_40style_bar.pdf
 >] (./supplement/tables/multiprompt.tex)
-<figures/main_results/supp_prompts_grid.pdf, id=130, 617.79851pt x 383.0791pt>
+<figures/main_results/supp_prompts_grid.pdf, id=131, 617.79851pt x 383.0791pt>
 File: figures/main_results/supp_prompts_grid.pdf Graphic file (type pdf)
 <use figures/main_results/supp_prompts_grid.pdf>
 Package pdftex.def Info: figures/main_results/supp_prompts_grid.pdf  used on in
-put line 364.
+put line 349.
 (pdftex.def)             Requested size: 505.89pt x 313.69434pt.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-<figures/reverse_shield/reverse_shield_all5.pdf, id=131, 369.59016pt x 591.6504
+<figures/reverse_shield/reverse_shield_all5.pdf, id=132, 369.59016pt x 591.6504
 pt>
 File: figures/reverse_shield/reverse_shield_all5.pdf Graphic file (type pdf)
 <use figures/reverse_shield/reverse_shield_all5.pdf>
 Package pdftex.def Info: figures/reverse_shield/reverse_shield_all5.pdf  used o
-n input line 393.
+n input line 378.
 (pdftex.def)             Requested size: 239.39438pt x 383.23209pt.
-<figures/dm_negative/dm_negative.pdf, id=132, 485.04974pt x 635.74286pt>
+<figures/dm_negative/dm_negative.pdf, id=133, 485.04974pt x 635.74286pt>
 File: figures/dm_negative/dm_negative.pdf Graphic file (type pdf)
 <use figures/dm_negative/dm_negative.pdf>
 Package pdftex.def Info: figures/dm_negative/dm_negative.pdf  used on input lin
-e 404.
+e 389.
 (pdftex.def)             Requested size: 234.60545pt x 307.49095pt.
  [7
 
@@ -522,13 +520,13 @@ L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7232 strings out of 475589
- 117843 string characters out of 5782861
+ 7225 strings out of 475589
+ 117533 string characters out of 5782861
  1943975 words of memory out of 5000000
- 29271 multiletter control sequences out of 15000+600000
- 592357 words of font info for 67 fonts, out of 8000000 for 9000
+ 29266 multiletter control sequences out of 15000+600000
+ 595218 words of font info for 68 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
- 95i,10n,117p,335b,368s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 95i,10n,117p,335b,366s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texli
@@ -537,11 +535,12 @@ f-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/
 fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/ty
 pe1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ne
-wtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb>
-Output written on supplement.pdf (10 pages, 12382675 bytes).
+wtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb><
+/usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
+Output written on supplement.pdf (10 pages, 12405321 bytes).
 PDF statistics:
- 423 PDF objects out of 1000 (max. 8388607)
- 192 compressed objects within 2 object streams
+ 428 PDF objects out of 1000 (max. 8388607)
+ 195 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  46 words of extra memory for PDF output out of 10000 (max. 10000000)
 
