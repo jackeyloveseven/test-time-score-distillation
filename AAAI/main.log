@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 07:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 08:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -411,51 +411,54 @@ LaTeX Font Info:    Font shape `T1/ntxtlf/b/it' will be
 (Font)              scaled to size 10.95pt on input line 235.
  [2] [3 <./figures/tsd_framework/tsd_framework.png (PNG copy)>]
 (./supplement/tables/external_model_audit.tex) [4]
-<figures/main_results/main_results.pdf, id=26, 505.55814pt x 187.57416pt>
+<figures/main_results/main_results.pdf, id=26, 245.85652pt x 343.31601pt>
 File: figures/main_results/main_results.pdf Graphic file (type pdf)
 <use figures/main_results/main_results.pdf>
 Package pdftex.def Info: figures/main_results/main_results.pdf  used on input l
 ine 490.
-(pdftex.def)             Requested size: 414.8335pt x 153.92055pt.
-<figures/main_results/dense_grid.pdf, id=27, 491.20566pt x 980.93356pt>
-File: figures/main_results/dense_grid.pdf Graphic file (type pdf)
-<use figures/main_results/dense_grid.pdf>
-Package pdftex.def Info: figures/main_results/dense_grid.pdf  used on input lin
-e 500.
-(pdftex.def)             Requested size: 299.665pt x 598.3944pt.
+(pdftex.def)             Requested size: 239.39438pt x 334.3048pt.
 
-
-LaTeX Warning: Float too large for page by 12.9644pt on input line 511.
-
-
-Underfull \hbox (badness 1033) in paragraph at lines 546--559
+Underfull \hbox (badness 1033) in paragraph at lines 531--544
 []\T1/ntxtlf/b/n/10 Is the style-fidelity gap real style, or just more
  []
 
 [5]
+<figures/main_results/dense_grid.pdf, id=31, 691.96341pt x 365.52898pt>
+File: figures/main_results/dense_grid.pdf Graphic file (type pdf)
+<use figures/main_results/dense_grid.pdf>
+Package pdftex.def Info: figures/main_results/dense_grid.pdf  used on input lin
+e 569.
+(pdftex.def)             Requested size: 505.89pt x 267.24109pt.
+
+Underfull \hbox (badness 5217) in paragraph at lines 614--618
+ \T1/ntxtlf/b/n/10 Lim-i-ta-tions. \T1/ntxtlf/m/n/10 TSD is training-free of we
+ights but
+ []
+
+[6 <./figures/main_results/main_results.pdf>] (./main.bbl
+Underfull \vbox (badness 1742) has occurred while \output is active []
+
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [6 <./figures/main_results/main_results.pdf>] [7 <./figures/main_results/dense
-_grid.pdf>] (./main.bbl
+ [7 <./figures/main_results/dense_grid.pdf>]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [8])
-[9
-
-] (./main.aux)
+) [8]
+(./main.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7253 strings out of 475589
- 115506 string characters out of 5782861
+ 7255 strings out of 475589
+ 115562 string characters out of 5782861
  1950975 words of memory out of 5000000
- 29302 multiletter control sequences out of 15000+600000
+ 29304 multiletter control sequences out of 15000+600000
  606709 words of font info for 72 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
- 95i,11n,117p,351b,365s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 95i,11n,117p,351b,364s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texli
@@ -466,10 +469,10 @@ ype1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/newtx/ztmb.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztm
 bi.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/newtx/ztmr.pfb></usr/s
 hare/texlive/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on main.pdf (9 pages, 8265267 bytes).
+Output written on main.pdf (8 pages, 4739300 bytes).
 PDF statistics:
- 251 PDF objects out of 1000 (max. 8388607)
- 116 compressed objects within 2 object streams
+ 245 PDF objects out of 1000 (max. 8388607)
+ 114 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  16 words of extra memory for PDF output out of 10000 (max. 10000000)
 

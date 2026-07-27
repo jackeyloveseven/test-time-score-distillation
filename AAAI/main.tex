@@ -485,30 +485,15 @@ Native new-comp. & .247 $\pm$ .155 & .315 $\pm$ .011 & .299 $\pm$ .064 \\
 \end{tabular}
 \end{table}
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.82\textwidth]{main_results/main_results.pdf}
+\includegraphics[width=\columnwidth]{main_results/main_results.pdf}
 \caption{\textbf{TSD improves style fidelity across two locality regimes.}
 (a) All 40 paired CSD gains are positive. (b) CSD--CLIP-T frontier at fixed
 seed 65 ($n=40$; mean $\pm$ cross-style SD). Qualitative outputs across ten
 styles are in Figure~\ref{fig:dense-grid}.}
 \label{fig:mainresults}
-\end{figure*}
-
-\begin{figure*}[p]
-\centering
-\includegraphics[height=0.92\textheight]{main_results/dense_grid.pdf}
-\caption{\textbf{Dense qualitative comparison across ten fixed styles.} Each row
-is a fixed reference medium (graphic, painterly, relief, mosaic, and
-stained-glass styles); columns show the reference, the two matched native edits
-(keep-/new-composition), and TSD Semantic / TSD Global. All outputs use the same
-``panda eating bamboo'' prompt. For each cell the seed is selected per style
-from $\{65,202,777\}$ for legibility; all quantitative results use fixed seed 65
-throughout. TSD renders the reference medium in both modes, whereas the native
-image+text edits default to a generic realistic panda that ignores the
-reference style.}
-\label{fig:dense-grid}
-\end{figure*}
+\end{figure}
 
 \textbf{Result (40 styles).} Even at its best, the native edit is dominated
 on style fidelity by a wide margin across references (Table~\ref{tab:benchmark}). TSD
@@ -579,6 +564,21 @@ prompts, but on the \emph{portrait} prompt our CLIP-T falls further (gap up to
 $\approx 0.08$) as the spear over-stylizes the face --- the same honest
 trade-off, more visible where subject identity is strong.
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{main_results/dense_grid.pdf}
+\caption{\textbf{Dense qualitative comparison across ten fixed styles} (two
+side-by-side blocks). Within each five-panel strip the columns are the
+reference, the two matched native edits (keep-/new-composition), and TSD
+Semantic / TSD Global; the row label names the reference medium. All outputs use
+the same ``panda eating bamboo'' prompt. For each cell the seed is selected per
+style from $\{65,202,777\}$ for legibility; all quantitative results use fixed
+seed 65 throughout. TSD renders the reference medium in both modes, whereas the
+native image+text edits default to a generic realistic panda that ignores the
+reference style.}
+\label{fig:dense-grid}
+\end{figure*}
+
 \subsection{Ablations}
 
 \textbf{The frozen reverse step is load-bearing.} We scale the scheduler
@@ -611,22 +611,11 @@ removes any need for a learned fake-score network in the evaluated regime.
 Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
 strongest native edit, at a modest subject-alignment cost.
 
-\paragraph{Limitations (Stated Plainly).} TSD is training-free of weights but
-optimization-based at test time (a few latent iterations per step); we do not
-claim a feed-forward free lunch. Our empirical comparison is to the \emph{same
-frozen model's} strongest native image+text edit --- this isolates what TSD
-adds to the base model under a matched architecture and sampler. We do not
-claim a full leaderboard over systems with different backbones, inputs, and
-task definitions. Our five-style public-editor audit tests transferability,
-not compute-matched SOTA (the K/V-based
-faithful-motif line is out of scope by design). Exact structured-motif
-reproduction is likewise out of scope (it requires attention-level mechanisms
-we exclude). On already-graphic references the medium is near-saturated, so
-gains are neutral --- a limitation, not a failure. The ``regularization
-substitution'' is an \emph{empirical} finding (no collapse under large
-guidance; a trained shield hurts), not a formal theorem.
+\paragraph{Limitations.} TSD is training-free of weights but optimization-based
+at test time, and our comparison isolates what it adds to the \emph{same frozen
+model's} strongest native edit rather than claiming a cross-backbone
+leaderboard; K/V-based faithful-motif reproduction is out of scope.
 
-\newpage
 \setlength{\bibsep}{4.5pt}
 \bibliography{references}
 
