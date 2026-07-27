@@ -236,6 +236,7 @@ PROMPTS = {
     "kp2": "A cat sitting on a windowsill",
     "kp3": "A field of sunflowers at sunset",
     "kp4": "A portrait of an old fisherman",
+    "kp5": "A lighthouse on a rocky coast",
 }
 
 FORMAL_DEFAULTS = {

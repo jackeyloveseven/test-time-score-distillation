@@ -169,6 +169,7 @@ SUBJECT_BY_PROMPT_ID = {
     "kp2": "a cat sitting on a windowsill",
     "kp3": "a field of sunflowers at sunset",
     "kp4": "a portrait of an old fisherman",
+    "kp5": "a lighthouse on a rocky coast",
 }
 
 

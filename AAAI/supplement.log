@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 08:03
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.1.9)  27 JUL 2026 08:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -457,24 +457,32 @@ itative/external_model_qualitative.png (PNG copy)>] [5 <./figures/paramgrid_csd
 _heatmap/paramgrid_csd_heatmap.pdf> <./figures/open_judge_validation/open_judge
 _validation.pdf>] [6 <./figures/benchmark_40style_bar/benchmark_40style_bar.pdf
 >] (./supplement/tables/multiprompt.tex)
+<figures/main_results/supp_prompts_grid.pdf, id=130, 617.79851pt x 383.0791pt>
+File: figures/main_results/supp_prompts_grid.pdf Graphic file (type pdf)
+<use figures/main_results/supp_prompts_grid.pdf>
+Package pdftex.def Info: figures/main_results/supp_prompts_grid.pdf  used on in
+put line 364.
+(pdftex.def)             Requested size: 505.89pt x 313.69434pt.
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-<figures/reverse_shield/reverse_shield_all5.pdf, id=130, 369.59016pt x 591.6504
+<figures/reverse_shield/reverse_shield_all5.pdf, id=131, 369.59016pt x 591.6504
 pt>
 File: figures/reverse_shield/reverse_shield_all5.pdf Graphic file (type pdf)
 <use figures/reverse_shield/reverse_shield_all5.pdf>
 Package pdftex.def Info: figures/reverse_shield/reverse_shield_all5.pdf  used o
-n input line 382.
+n input line 393.
 (pdftex.def)             Requested size: 239.39438pt x 383.23209pt.
-<figures/dm_negative/dm_negative.pdf, id=131, 485.04974pt x 635.74286pt>
+<figures/dm_negative/dm_negative.pdf, id=132, 485.04974pt x 635.74286pt>
 File: figures/dm_negative/dm_negative.pdf Graphic file (type pdf)
 <use figures/dm_negative/dm_negative.pdf>
 Package pdftex.def Info: figures/dm_negative/dm_negative.pdf  used on input lin
-e 393.
+e 404.
 (pdftex.def)             Requested size: 234.60545pt x 307.49095pt.
  [7
 
- <./figures/dm_negative/dm_negative.pdf>] (./reproducibility.tex
+ <./figures/dm_negative/dm_negative.pdf>] [8 <./figures/main_results/supp_promp
+ts_grid.pdf>] (./reproducibility.tex
 LaTeX Font Info:    Trying to load font information for TS1+ntxtlf on input lin
 e 10.
 
@@ -485,18 +493,19 @@ LaTeX Font Info:    Font shape `TS1/ntxtlf/m/n' will be
 (Font)              scaled to size 9.0pt on input line 10.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
 (Font)              scaled to size 9.0pt on input line 10.
- [8{/usr/share/texmf/fonts/enc/dvips/tex-gyre/q-ts1.enc}]) [9 <./figures/revers
-e_shield/reverse_shield_all5.pdf>] (./supplement.aux)
+) [9{/usr/share/texmf/fonts/enc/dvips/tex-gyre/q-ts1.enc}] [10
+
+ <./figures/reverse_shield/reverse_shield_all5.pdf>] (./supplement.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2020/03/25>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7246 strings out of 475589
- 117865 string characters out of 5782861
- 1948975 words of memory out of 5000000
- 29280 multiletter control sequences out of 15000+600000
+ 7256 strings out of 475589
+ 118329 string characters out of 5782861
+ 1943975 words of memory out of 5000000
+ 29290 multiletter control sequences out of 15000+600000
  595603 words of font info for 69 fonts, out of 8000000 for 9000
  309 hyphenation exceptions out of 8191
  95i,10n,117p,335b,368s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -512,10 +521,10 @@ fonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmsy9.pfb></usr/share/texmf/fonts/type1/public/tex-gyre/qtmr.pfb></usr/share/
 texlive/texmf-dist/fonts/type1/public/newtx/ztmb.pfb></usr/share/texlive/texmf-
 dist/fonts/type1/public/newtx/ztmr.pfb>
-Output written on supplement.pdf (9 pages, 9914929 bytes).
+Output written on supplement.pdf (10 pages, 12402887 bytes).
 PDF statistics:
- 308 PDF objects out of 1000 (max. 8388607)
- 150 compressed objects within 2 object streams
+ 440 PDF objects out of 1000 (max. 8388607)
+ 202 compressed objects within 3 object streams
  0 named destinations out of 1000 (max. 500000)
- 41 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 46 words of extra memory for PDF output out of 10000 (max. 10000000)
 

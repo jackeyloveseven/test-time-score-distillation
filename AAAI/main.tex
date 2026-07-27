@@ -490,8 +490,8 @@ Native new-comp. & .247 $\pm$ .155 & .315 $\pm$ .011 & .299 $\pm$ .064 \\
 \includegraphics[width=\columnwidth]{main_results/main_results.pdf}
 \caption{\textbf{TSD improves style fidelity across two locality regimes.}
 (a) All 40 paired CSD gains are positive. (b) CSD--CLIP-T frontier at fixed
-seed 65 ($n=40$; mean $\pm$ cross-style SD). Qualitative outputs across ten
-styles are in Figure~\ref{fig:dense-grid}.}
+seed 65 ($n=40$; mean $\pm$ cross-style SD). Qualitative outputs on two content
+prompts are in Figure~\ref{fig:dense-grid}.}
 \label{fig:mainresults}
 \end{figure}
 
@@ -566,16 +566,17 @@ trade-off, more visible where subject identity is strong.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{main_results/dense_grid.pdf}
-\caption{\textbf{Dense qualitative comparison across ten fixed styles} (two
-side-by-side blocks). Within each five-panel strip the columns are the
-reference, the two matched native edits (keep-/new-composition), and TSD
-Semantic / TSD Global; the row label names the reference medium. All outputs use
-the same ``panda eating bamboo'' prompt. For each cell the seed is selected per
-style from $\{65,202,777\}$ for legibility; all quantitative results use fixed
-seed 65 throughout. TSD renders the reference medium in both modes, whereas the
-native image+text edits default to a generic realistic panda that ignores the
-reference style.}
+\includegraphics[width=\textwidth]{main_results/two_prompt_grid.pdf}
+\caption{\textbf{The medium transfers across content, not just one subject.}
+Five media-diverse styles (rows) are each applied to two very different content
+prompts --- a panda and a lighthouse. The leftmost column is the shared style
+reference; within each content block the columns are the two matched native
+edits (keep-/new-composition) and TSD Semantic / TSD Global. TSD renders
+\emph{both} subjects in the reference medium, whereas the native image+text
+edits default to a generic realistic rendering that ignores the medium. Seeds
+are selected per cell from $\{65,202,777\}$ for legibility; all quantitative
+results use fixed seed 65. Four further content prompts appear in the
+supplement.}
 \label{fig:dense-grid}
 \end{figure*}
 
