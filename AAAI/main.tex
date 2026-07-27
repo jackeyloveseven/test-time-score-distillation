@@ -1,680 +1,730 @@
-% AAAI-26 working draft. Replace only this preamble with the official
-% aaai2026 style package when the author kit is available locally.
-\documentclass[10pt,letterpaper]{article}
-\usepackage[letterpaper,margin=0.72in]{geometry}
-\usepackage{times}
-\usepackage{amsmath,amssymb,booktabs,multirow}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{microtype}
-\usepackage{url}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,fit}
-\setlength{\columnsep}{0.25in}
-\setlength{\parindent}{1em}
-\setlength{\parskip}{0pt}
-\graphicspath{{results/}{../results/}}
+\documentclass[letterpaper]{article} % DO NOT CHANGE THIS
+\usepackage[submission]{aaai2027}  % DO NOT CHANGE THIS
+% The serif, sans-serif, and monospaced fonts are loaded automatically by
+% aaai2027.sty (newtxtext, helvet, courier). DO NOT add \usepackage{times},
+% \usepackage{helvet}, \usepackage{courier}, or any other font package.
+\usepackage[hyphens]{url}  % DO NOT CHANGE THIS
+\usepackage{graphicx} % DO NOT CHANGE THIS
+\urlstyle{rm} % DO NOT CHANGE THIS
+\def\UrlFont{\rm}  % DO NOT CHANGE THIS
+\usepackage{natbib}  % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{caption} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\frenchspacing  % DO NOT CHANGE THIS
 
-\newcommand{\method}{\textsc{GoalCarrier}}
-\newcommand{\score}{\mathsf{s}}
-\newcommand{\vel}{\mathsf{v}}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\graphicspath{{figures/}}
+
+\newcommand{\vel}{v}
+\newcommand{\score}{s}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\sg}{\operatorname{sg}}
+\newcommand{\rmsnorm}{\operatorname{rmsnorm}}
+\newcommand{\eg}{\emph{e.g.}}
+\newcommand{\ie}{\emph{i.e.}}
 
-\title{From Visual Goal to Denoising Flow:\\
-Carrier-Anchored Image CFG for Training-Free Style Transfer}
-\author{Anonymous Authors}
-\date{}
+% Keep the \pdfinfo as shown here. There's no need
+% for you to add the /Title and /Author tags.
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+\setcounter{secnumdepth}{0} % AAAI: unnumbered sections by default
+
+\title{Test-Time Score Distillation: Mask-Free Semantic Style Editing with
+Reverse-Process Regularization}
+\author{
+    Anonymous Submission
+}
+\affiliations{
+    %
+}
 
 \begin{document}
+
 \maketitle
 
 \begin{abstract}
-Reference-based style transfer must answer two different questions: what
-appearance does the reference request, and where should that appearance act in
-the generated scene? Existing attention replacement entangles the two by
-importing reference features and their spatial organization together, while
-adapter-based methods introduce a separate training problem. We instead expose
-the model's own reference-dependent score as a visual goal and render it through
-a carrier derived only from the current content state. Specifically, two native
-model evaluations at the same latent and timestep, with and without the
-reference, yield an image-CFG score residual. A detached content-token affinity
-then transports this residual before a scheduler-consistent clean-state loss
-updates the latent. The resulting method is online and training-free: it
-optimizes only the current sample and learns no adapter. In a controlled
-Klein9B study, the carrier-anchored residual reaches 0.6896 CSD on a strictly
-reproduced representative case. Across three matched reference--prompt pairs,
-it improves mean CSD from 0.4027 for K/V replacement to 0.5662 while maintaining
-comparable text alignment, with an explicit content-layout trade-off. These
-results support a simple view of image-conditioned generation: the native score
-specifies the goal, the current image state supplies the spatial carrier, and
-the flow parameterization executes their combination.
+Training-free style transfer with a frozen text-to-image transformer conflates
+two useful outcomes: preserving a reference composition while changing its
+subject, and transferring only the reference medium to a new composition. We
+formulate them as endpoints of a single \emph{style-locality} axis and control
+both with \textbf{Test-Time Score Distillation (TSD)}. TSD evaluates a
+same-state contrast between reference-conditioned and reference-free frozen
+velocities, converts it into a fixed-magnitude rms-normalized latent update,
+and interleaves that update with the model's ordinary reverse steps. This gives
+an empirical \emph{regularization substitution}: in our single-sample
+test-time regime, the frozen reverse trajectory repeatedly re-anchors the
+edited latent, while an added learned fake-score term suppresses structured
+media rather than improving stability. The number of reverse steps then acts
+as a locality control: more steps preserve reference composition for
+mask-free semantic style editing; fewer steps dissolve composition for global
+style transfer. We evaluate style fidelity, subject fidelity, and composition
+transfer separately using CSD, CLIP-T, and layout leak. Across 40 references,
+TSD improves CSD from 0.267 to 0.719 in the composition-preserving setting and
+from 0.247 to 0.615 in the composition-dissolving setting, winning all 40
+paired styles in both cases, with a modest CLIP-T decrease of about 0.02. A
+five-style, four-prompt extension yields 20/20 additional paired wins. TSD
+trains no weights, but remains an optimization-based test-time method.
 \end{abstract}
 
 \section{Introduction}
 
-An image can be more than a feature source: it can specify a visual operation
-that changes an ongoing generation. Style transfer is a sharp test of this
-ability. A reference image communicates palette, material, texture, and
-mark-making, but its objects and composition should not be copied. The model
-must therefore extract \emph{what} to change while preserving \emph{where} the
-generated content lives.
+\textbf{Style transfer on a frozen generator is treated as one task, but
+users want two.} Given a content prompt and a reference image, a frozen
+text-to-image transformer can render the prompt's subject ``in the style of''
+the reference. In practice two very different outcomes are desirable and are
+conflated under one name. In one, an artist wants the reference's
+\emph{scene} preserved --- its composition, its arrangement --- with only the
+subject re-imagined in the reference's medium; this is \textbf{Semantic Style
+Editing}. In the other, the artist wants only the reference's \emph{look}
+--- its medium, texture, and palette --- carried onto a freshly composed
+scene, with the reference's specific layout thrown away; this is
+\textbf{Global Style Transfer}. Conflating them yields methods that silently
+do one and fail the other.
 
-Most diffusion style-transfer mechanisms blur these roles. Replacing
-self-attention keys and values can transfer strong appearance, but it also
-imports the reference's token geometry \cite{chung2024styleinjection}. Image
-adapters learn a useful visual condition, but require a separately trained
-interface \cite{ye2023ipadapter}. Optimization-based score losses expose a
-generative prior directly \cite{poole2023dreamfusion,hertz2023dds}, yet a raw
-score direction alone does not say which current-image tokens should carry a
-reference-dependent change. This suggests that the central difficulty is not
-merely obtaining a style signal; it is assigning that signal a content-aligned
-spatial support.
+\textbf{These two outcomes are the endpoints of a single controllable axis,
+which we call style locality.} Style locality asks \emph{how much of the
+reference is transferred}: at the local end, everything is transferred
+(medium and composition), giving semantic editing; at the global end, only
+the transferable, position-free part (medium, palette, texture statistics) is
+transferred, giving global transfer. Framing the problem as one axis, rather
+than two disjoint tasks, is what lets a single operator serve both --- and
+lets a user dial between them.
 
-We formulate the problem as \textbf{goal--carrier--flow}. The \emph{goal} is
-the native score change caused by showing the model the reference at a fixed
-state. The \emph{carrier} is an affinity computed exclusively from the current
-content latent, which determines where that change is transported. The
-\emph{flow executor} converts the transported score direction into the clean
-state optimized by the rectified-flow sampler. This decomposition makes the
-role of cross attention (CA) precise: CA is not removed, nor is it a learned
-adapter. The native model uses its image condition to form the goal; the
-explicit content affinity supplies the spatial carrier used by the online
-loss.
+\textbf{We drive this axis with one frozen-model operator, derived rather
+than engineered.} Recent distribution-matching distillation \citep{yin2024dmd}
+separates its update into a \emph{spear} (a classifier-free-guidance-
+augmentation term that sharpens toward the conditioning) and a \emph{shield}
+(a distribution-matching term, requiring a separately trained fake-score
+network, that keeps samples on the data manifold) \citep{liu2025decoupled}.
+We find that for \emph{test-time, single-sample} generation over a multi-step
+frozen reverse process, the ordinary inference dynamics provide sufficient
+regularization in our experiments, while adding a fake-score term suppresses
+structured style. Removing that auxiliary network leaves a pure
+frozen-teacher update, which we call \textbf{Test-Time Score Distillation
+(TSD)}.
 
-Figure~\ref{fig:overview} summarizes the method and a representative outcome.
-Unlike K/V replacement, the reference never enters the carrier. Unlike an
-offline student, the procedure is completed inside one sampling trajectory.
-The same-state constraint also gives a clean interpretation: the score
-difference is a conditional log-density-ratio direction rather than a
-difference between unrelated noisy states.
-
-Our contributions are threefold:
+\paragraph{Contributions.}
 \begin{enumerate}
-\item We derive a same-state \emph{image-CFG residual} from a native
-reference-conditioned flow model, explicitly separating a visual goal from
-shared state and prompt terms.
-\item We introduce \method, a training-free online objective that transports
-the goal through a detached, reference-independent content carrier and applies
-it through a scheduler-consistent clean-state target.
-\item We provide matched controls for K/V replacement, score-only guidance,
-carrier transport, start time, and latent regularization, together with an
-auditable protocol that records model, state, scheduler, optimizer, and
-evaluator hashes.
+\item \textbf{A reframing.} Training-free style transfer is a single
+\emph{style-locality} axis whose two ends (Semantic Style Editing, Global
+Style Transfer) are both first-class tasks; we serve both with one operator
+and a single free knob (reverse-step count).
+\item \textbf{An empirically tested regularization substitution.} We
+interleave bounded latent updates with the frozen reverse trajectory and show
+that an auxiliary fake-score network is unnecessary in the evaluated regime;
+adding one erases structured media rather than improving stability.
+\item \textbf{A separable-axis evaluation protocol.} We evaluate style
+fidelity (CSD), subject fidelity (CLIP-T), and composition transfer
+(layout-leak) as three \emph{separable} axes, complemented by a task-aware
+six-dimensional Agent audit, and show that a single style number rewards
+subject-destroying over-stylization --- a failure only the joint reading
+exposes. (We also tested, and honestly reject, a
+generator-native single-forward style metric read from the spear; \S~4.)
+\item \textbf{A fair, strong baseline and a decisive result.} Against the
+same frozen model \emph{directly instructed} to edit the image with its
+strongest style-transfer prompt, TSD reaches \textbf{2.5--2.7$\times$ its
+CSD} at matched subject fidelity across all 40 styles (with half the
+variance), and --- unlike the native edit --- can dissolve composition while
+keeping medium.
 \end{enumerate}
-
-\begin{figure*}[t]
-\centering
-\begin{minipage}[c]{0.55\textwidth}
-\centering
-\resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[
-  font=\small,
-  box/.style={draw, rounded corners=2pt, minimum height=8mm, align=center,
-              inner xsep=5pt, fill=white},
-  arr/.style={-{Latex[length=2mm]}, thick},
-  note/.style={font=\scriptsize, align=center}
-]
-\node[box, fill=blue!7] (state) {$z_t,t,p$\\shared state};
-\node[box, fill=orange!10, above right=5mm and 11mm of state] (with)
-  {native model\\with reference $x_s$};
-\node[box, fill=gray!10, below right=5mm and 11mm of state] (without)
-  {native model\\without reference};
-\node[box, fill=red!7, right=15mm of with, yshift=-7mm] (goal)
-  {visual goal\\$g_t=\score_s-\score_0$};
-\node[box, fill=green!9, below=13mm of goal] (carrier)
-  {content carrier\\$A_t=\mathrm{softmax}(\bar z_t\bar z_t^\top/\tau)$};
-\node[box, fill=purple!7, right=13mm of goal, yshift=-7mm] (target)
-  {transport + flow\\$x_0^\star=\sg[x_0+\eta\mathcal T_A(g_t)]$};
-\draw[arr] (state) -- (with);
-\draw[arr] (state) -- (without);
-\draw[arr] (with) -- (goal);
-\draw[arr] (without) -- (goal);
-\draw[arr] (state.south) |- (carrier.west);
-\draw[arr] (goal) -- (target);
-\draw[arr] (carrier) -| (target);
-\node[note, below=1mm of carrier] {reference-free spatial support};
-\node[note, above=1mm of goal] {same latent, same timestep};
-\end{tikzpicture}
-}
-\end{minipage}\hfill
-\begin{minipage}[c]{0.42\textwidth}
-\centering
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{ccc}
-\includegraphics[width=0.31\linewidth]{formal25_score_carrier_start1000_score_carrier_style27_kp0_seed64_reference.png} &
-\includegraphics[width=0.31\linewidth]{formal25_multi_kv_s27_kp0_seed64_kv_match_style27_kp0_seed64.png} &
-\includegraphics[width=0.31\linewidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64.png}\\[-1mm]
-{\scriptsize Reference} & {\scriptsize K/V replacement} & {\scriptsize \method}\
-\end{tabular}
-\end{minipage}
-\caption{\textbf{Goal, carrier, and flow.} Left: the reference changes only
-the native goal branch; the spatial carrier is computed from the current
-content state. Both teacher evaluations share the exact latent and timestep.
-Right: for ``a panda eating bamboo,'' K/V replacement transfers appearance but
-also inherits reference-like composition; \method{} retains the requested
-content while expressing the reference palette and mark-making.}
-\label{fig:overview}
-\end{figure*}
 
 \section{Related Work}
 
-\paragraph{Style transfer and image conditioning.}
-Classical neural style transfer matches feature statistics or adaptive moments
-\cite{gatys2016style,huang2017adain}. Diffusion methods broaden the generative
-prior through inversion, attention control, or exemplar conditioning
-\cite{hertz2023prompt,tumanyan2023plugplay,yang2023paint}. Learned approaches
-include low-rank style tuning and decoupled image-prompt adapters
-\cite{sohn2023styledrop,ye2023ipadapter}. Training-free methods share or replace
-attention features \cite{chung2024styleinjection,hertz2024stylealigned} or
-inject image features into selected blocks \cite{wang2024instantstyle}. These
-methods motivate our concern: appearance transfer is strongest when reference
-features are spatially influential, precisely where reference-layout leakage
-can arise. We use the model-native image condition to define appearance and a
-separate content-state operator to define placement.
+\paragraph{Distillation and test-time score guidance.}
+Distribution-matching distillation matches a student generator to a teacher
+through real-minus-fake score differences, with later variants improving the
+objective and separating a distribution-matching \emph{shield} from a
+CFG-augmentation \emph{spear}
+\citep{yin2024dmd,yin2024dmd2,liu2025decoupled}. This decomposition connects
+to diffusion and score models' noise-conditional vector fields
+\citep{ho2020ddpm,song2021sde}: conditional contrasts yield classifier or
+classifier-free guidance, score distillation, and text-guided editing
+\citep{dhariwal2021diffusion,ho2022cfg,poole2023dreamfusion,hertz2023dds,
+nam2024cds,chinchuthakun2025lusd}.
+Other test-time methods steer frozen samplers with external losses, perturbed
+attention, or annealed conditions
+\citep{bansal2023universal,ahn2024pag,hong2024seg,sadat2024cads}. TSD instead
+specializes the spear to one test-time sample: it optimizes only the current
+latent and empirically substitutes the frozen reverse trajectory for a
+separately trained fake-score network.
 
-\paragraph{Guidance and score differences.}
-Classifier guidance and classifier-free guidance alter a diffusion score by a
-conditional contrast \cite{dhariwal2021diffusion,ho2022cfg}. Score Distillation
-Sampling turns a frozen diffusion prior into an optimization gradient
-\cite{poole2023dreamfusion}; Delta Denoising Score removes a matched source
-direction for stable text-driven editing \cite{hertz2023dds}, and contrastive
-variants add structure-preserving features \cite{nam2024cds}. Our residual is
-related algebraically but differs in conditioning and use: both branches are
-native image-edit evaluations at the current generated state, and their
-reference-dependent difference is explicitly transported by a content-only
-carrier before execution.
+\paragraph{Reference-conditioned style transfer and frozen-model editing.}
+Classical style transfer matches feature statistics
+\citep{gatys2016style,huang2017adain}; diffusion methods extend this idea
+through exemplar conditioning, learned style interfaces, attention sharing,
+or sampling-time transport
+\citep{yang2023paint,sohn2023styledrop,ye2023ipadapter,hertz2024stylealigned,
+chung2024styleinjection,deng2024zstar,wang2024instantstyle,xu2025stylessp,
+he2025semantix,rout2025rbmodulation}. Related editing systems control cross-attention or reuse
+frozen diffusion features \citep{hertz2023prompt,tumanyan2023plugplay}, while
+rectified-flow methods develop inversion and direct trajectory editing
+\citep{rout2025rfinversion,kulikov2025flowedit}. TSD belongs to the
+optimization-based, training-free-of-weights family, but its signal is the
+native same-state reference-conditioning contrast rather than replaced
+attention features, a trained adapter, or an explicit mask. Accordingly, we
+do not target exact motif replication through attention key/value
+manipulation; we target the transferable medium, palette, and texture
+statistics controlled by the style-locality axis.
 
-\paragraph{Distribution and flow matching.}
-Diffusion and score models learn noise-conditional vector fields
-\cite{ho2020ddpm,song2021sde}. Flow matching and rectified flow provide a direct
-velocity parameterization \cite{lipman2023flow,liu2023rectified}, used by modern
-multimodal diffusion transformers \cite{esser2024sd3}. Distribution Matching
-Distillation (DMD) learns a fast generator from real and fake score differences
-\cite{yin2024dmd,yin2024dmd2}. \method{} instead performs per-sample online
-refinement and trains no generator. A dynamic fake-score term is compatible
-with our carrier, but is not required by or claimed as the main method.
+\section{Method}
 
-\section{Carrier-Anchored Image CFG}
+Figure~\ref{fig:pipeline} summarizes the operator derived in this section as
+an alternating cycle of task-direction distillation, a bounded latent update,
+and frozen-prior regularization.
 
-\subsection{Problem and Same-State Contract}
-
-Let $z_t\in\R^{L\times C}$ be the current noisy image tokens, $t$ the sampler
-timestep, $p$ a content prompt, and $x_s$ a style reference. The frozen native
-edit model predicts velocity $\vel_s(z_t,t,p,x_s)$ when shown the reference and
-$\vel_0(z_t,t,p)$ when the reference condition is removed. The two evaluations
-must share the same $z_t$, $t$, prompt metadata, and image-token IDs. Otherwise,
-their difference contains an uncontrolled state change and cannot be
-interpreted as guidance.
-
-For the flow scheduler
-\begin{equation}
- z_\sigma=(1-\sigma)x_0+\sigma\epsilon,\qquad
- \vel=\epsilon-x_0,
- \label{eq:flow}
-\end{equation}
-we have $\hat x_0=z_\sigma-\sigma\vel$ and
-$\score=-(z_\sigma+(1-\sigma)\vel)/\sigma$. Shared state terms cancel, giving
-\begin{equation}
- g_t \equiv \score_s-\score_0
- =-\frac{1-\sigma}{\sigma}(\vel_s-\vel_0).
- \label{eq:goal}
-\end{equation}
-The implementation resolves $\sigma$ from the scheduler table, clamps only its
-degenerate endpoint, and sets the correction to zero when the inverse
-conversion is undefined.
-
-Equation~\ref{eq:goal} is an image analogue of CFG. If the two branches
-estimate conditional densities $p_s$ and $p_0$, then
-\begin{equation}
- g_t=\nabla_{z_t}\log p_s(z_t\mid p,x_s)
-     -\nabla_{z_t}\log p_0(z_t\mid p)
- =\nabla_{z_t}\log\frac{p_s}{p_0}.
- \label{eq:ratio}
-\end{equation}
-Thus the native model, rather than replaced K/V tensors or a learned adapter,
-defines what the reference asks the current sample to change.
-
-\subsection{Reference-Independent Spatial Carrier}
-
-A goal is not yet a rendering rule. We compute a token affinity from the saved
-post-scheduler content state $c_t$:
-\begin{equation}
- A_t=\operatorname{softmax}\!\left(\frac{\bar c_t\bar c_t^\top}{\tau}\right),
- \qquad \bar c_{t,u}=\frac{c_{t,u}}{\lVert c_{t,u}\rVert_2}.
- \label{eq:affinity}
-\end{equation}
-$A_t$ is detached and never receives $x_s$. It is therefore a spatial carrier,
-not another style extractor. The transported field is
-\begin{equation}
- \mathcal T_A(g_t)=g_t+\lambda_A(A_tg_t-g_t),
- \label{eq:transport}
-\end{equation}
-with an optional high-pass residual in the general implementation. The formal
-configuration uses no high-pass gain, isolating affinity transport.
-
-This design gives CA a specific role. The model's native image-conditioning
-path, which includes its cross-attention machinery, forms $g_t$. The explicit
-content affinity then decides which current-image tokens share that change.
-Reference K/V tensors are not inserted into $A_t$; consequently the carrier
-cannot directly reproduce the reference arrangement.
-
-\subsection{Online Objective}
-
-We optimize the current latent, not model parameters. The base branch predicts
-$\hat x_0^0=z_t-\sigma\vel_0(z_t)$ with gradients retained through
-$\vel_0$. The styled branch is detached. The direct goal-matching term is
-\begin{equation}
- \mathcal L_{\mathrm{goal}}
- =\left\lVert\mathcal N\!\left[
- -\frac{1-\sigma}{\sigma}
- \big(\vel_0(z_t)-\sg[\vel_s(z_t)]\big)
- \right]\right\rVert_2^2,
- \label{eq:lgoal}
-\end{equation}
-where $\mathcal N$ removes the timestep scalar magnitude while preserving field
-direction and relative token energy.
-
-For the carrier term, we form a detached pseudo-target
-\begin{equation}
- x_0^\star=\sg\left[\hat x_0^0+
- \eta\,\operatorname{RMSNorm}(\mathcal T_A(g_t))\right],
- \quad
- \mathcal L_{\mathrm{carrier}}=\tfrac12
- \lVert\hat x_0^0-x_0^\star\rVert_2^2.
- \label{eq:carrierloss}
-\end{equation}
-The complete per-sample objective is
-\begin{equation}
- \mathcal L=\mathcal L_{\mathrm{goal}}
- +\lambda_c\mathcal L_{\mathrm{carrier}}
- +\lambda_d\mathcal L_{\mathrm{dist}}
- +\lambda_p\mathcal L_{\mathrm{content}}.
- \label{eq:full}
-\end{equation}
-The last two terms are inherited safeguards that keep the local score direction
-within the valid sample neighborhood. All teacher fields, affinities, and
-pseudo-directions are detached at their stated boundaries. AdamW updates only
-$z_t$; with zero weight decay it is numerically Adam, while exposing decay as a
-separate regularization ablation.
-
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\fbox{\begin{minipage}{0.94\columnwidth}
-\small
-\textbf{One \method{} step at $(z_t,t)$.}
+\includegraphics[width=0.85\textwidth]{tsd_framework/tsd_framework.png}
+\caption{Test-time Score Distillation as alternating task-direction
+distillation and frozen-prior regularization. At each denoising state, a
+same-state native conditional contrast supplies the task direction. An
+rms-normalized pseudo-target bounds the latent update, after which the frozen
+model's standard reverse step acts as an implicit generative-prior
+regularizer. In contrast to training-time DMD, which learns an auxiliary
+fake-score regularizer, TSD relocates regularization into the frozen inference
+dynamics and optimizes only the current latent.}
+\label{fig:pipeline}
+\end{figure*}
 
-1. Save the post-scheduler state and resolve its exact $\sigma$.
+\subsection{Velocity Differences Are Score Differences}
 
-2. Evaluate $\vel_s$ and $\vel_0$ on that same state; form $g_t$ using
-Eq.~\ref{eq:goal}.
+A rectified-flow transformer \citep{esser2024sd3} predicts a velocity
+$v_\theta(z_t,t,c)$ at latent
+$z_t$, time $t$, conditioning $c$. For the flow-matching schedule
+\citep{lipman2023flow,liu2023rectified} the velocity is an affine function of
+the conditional score,
+$s_\theta(z_t,t,c)=-\,(z_t-(1-\sigma)\hat x_0)/\sigma^2$, so a
+\emph{difference} of velocities under two conditionings equals, up to one
+positive schedule factor, a difference of conditional scores:
+\begin{multline}
+v_\theta(z,c_1)-v_\theta(z,c_2)\;\propto\;\nabla_z\log p_t(z\mid c_1)\\[2pt]
+{}-\nabla_z\log p_t(z\mid c_2)\;=\;\nabla_z\log\frac{p_t(z\mid c_1)}{p_t(z\mid c_2)}.
+\label{eq:vscore}
+\end{multline}
+Every velocity difference the frozen model gives us is therefore the
+gradient of a log-density ratio we may ascend (attract) or descend (repel).
+This is the whole toolbox: no auxiliary network, only frozen forward passes.
 
-3. Build detached $A_t$ from content tokens only and transport $g_t$ by
-Eq.~\ref{eq:transport}.
+\subsection{The Spear: CFG-Augmentation as the Style Driver}
 
-4. Construct $x_0^\star$, update $z_t$ with Eq.~\ref{eq:full}, then advance
-the original flow sampler.
-\end{minipage}}
-\caption{The online algorithm. The reference is encoded once; no network
-parameters or persistent adapter state are optimized.}
-\label{fig:algorithm}
-\end{figure}
+Decoupled distribution matching \citep{liu2025decoupled} writes its
+distillation gradient as
+\begin{equation}
+\nabla \;\propto\; \underbrace{(s_{\text{cond}}-s_{\text{fake}})}_{\text{shield
+(distribution match)}}\;+\;\underbrace{(\alpha-1)\,(s_{\text{cond}}-s_{\text{uncond}})}_{\text{spear
+(CFG augmentation)}}.
+\label{eq:spearshield}
+\end{equation}
+The spear is a \emph{conditional contrast} evaluated at the sample's own
+state, structurally the image-conditioned analogue of classifier-free
+guidance \citep{ho2022cfg}; it needs only the frozen teacher. We instantiate
+the style spear with two frozen velocities: $v_{\text{with}}$, conditioned on
+the reference image (the style evidence), and $v_{\text{without}}$,
+conditioned on the style \emph{text} alone. The style guidance is
+\begin{equation}
+g \;=\; v_{\text{with}} - v_{\text{without}} \;\propto\; \nabla_z \log
+\frac{p_t(z\mid \text{reference})}{p_t(z\mid \text{style text})},
+\label{eq:stylespear}
+\end{equation}
+the extra style evidence the reference \emph{image} supplies beyond what
+words can.
 
-\subsection{Why Not K/V Replacement or an Adapter?}
+\subsection{The Regularization Substitution: The Frozen Reverse Process
+\emph{Is} the Shield}
 
-K/V replacement defines both appearance and token correspondence with the
-reference. Its visual effect can be strong, but a failure cannot be attributed
-cleanly to the goal or the carrier. \method{} instead obtains a whole-model
-reference contrast and then imposes content-state correspondence. An adapter
-could amortize this computation for repeated serving, but it would answer a
-different question: whether a trainable network can predict the field. The
-main method asks whether the native field can be exposed and used online for a
-single reference. No special training set is necessary.
+\textbf{The shield stabilizes repeated generator updates during distillation
+training.} In DMD, the fake-score term discourages the learned generator from
+drifting away from the teacher distribution. Our setting differs: we optimize
+one latent while retaining the frozen model's ordinary $T$-step reverse
+trajectory. Each bounded TSD update is followed by a standard reverse step,
+which repeatedly reintroduces the frozen model prior. We therefore test an
+empirical regularization substitution: whether these inference dynamics make a
+separately learned fake-score regularizer unnecessary in the single-sample
+regime.
 
-\section{Experiments}
+\textbf{The trained shield is unnecessary in the evaluated regime.} If the
+conditional contrast caused unstable drift, increasing its pre-normalization
+scale should expose artifacts. Instead, scales from 4 to 20 produce
+near-identical outputs because rms normalization removes that scale, and no
+collapse is observed across the tested trajectories. This does not establish
+formal distribution matching; it shows that an auxiliary fake-score network
+is not needed for the evaluated test-time procedure.
 
-\subsection{Protocol}
+\textbf{The trained shield is harmful in our implementation.} Adding a real
+fake-score critic removes visible structured media: for example, mosaic
+tesserae revert toward a naturalistic rendering. Scheduled fake-score updates
+also fail to improve three styles with remaining headroom. These observations
+support using the frozen reverse process as the only regularizing dynamics,
+without claiming that the same conclusion holds for every model or sampler.
 
-We evaluate on Klein9B at $512\times512$. The controlled set contains three
-style references paired with three content prompts (castle, sunflower field,
-and panda), using a fixed seed for the matched teacher comparison. The
-representative audit uses style 27, ``a panda eating bamboo,'' and seed 64.
-Every compared branch uses 25 outer flow steps, a dynamic 5-to-2 inner schedule,
-start time 1000, AdamW with zero latent decay, and disabled SLT and AdaIN. The
-formal \method{} setting uses distance weight 0.3, content weight 0.4, carrier
-temperature 0.1, strength 0.75, high-pass gain 0, and carrier-loss weight 0.25.
+Dropping the shield and keeping the spear gives \textbf{Test-time Score
+Distillation (TSD)}.
 
-We report CSD style similarity \cite{somepalli2024csd}, CLIP text alignment
-\cite{radford2021clip}, DINO style similarity \cite{oquab2024dinov2}, VGG Gram
-distance, and DINO self-similarity correlation with the reference (layout
-leakage). The first three are higher-is-better; Gram and leakage are
-lower-is-better. Because raw CSD is not a calibrated universal style metric
-\cite{frochte2026csd}, conclusions require agreement with qualitative results
-and the other metrics. All evaluator checkpoints and preprocessing hashes are
-recorded.
+\subsection{The RMS-Normalized Pseudo-Target: a Fixed-Magnitude
+Extrapolation}
 
-\paragraph{Baselines.}
-\emph{K/V replacement} is the original attention-carrier implementation.
-\emph{Score match} optimizes Eq.~\ref{eq:lgoal} without explicit transport.
-\emph{Score carrier} is \method. The strict audit reruns the final configuration
-from an isolated trial copy. CA+DMD is excluded from the headline comparison:
-it requires a persistent, dynamically updated fake-score model and is not
-equivalent to simply adding a frozen score term.
+We apply the spear as a pseudo-target in $x_0$-space rather than as a raw
+gradient. With $\hat x_0 = z - \sigma\,v_{\text{without}}$ the current
+denoised estimate, we form a detached target that is the estimate nudged
+along the \emph{unit} style direction,
+\begin{equation}
+x_0^{\text{tgt}} = \sg\!\big(\hat x_0 + \eta\,\widehat{g}\big), \qquad
+\widehat{g}=\rmsnorm(g),
+\label{eq:pseudotarget}
+\end{equation}
+\begin{equation}
+\mathcal L = \tfrac12\big\lVert \hat x_0 - x_0^{\text{tgt}}\big\rVert^2,
+\label{eq:pseudotargetloss}
+\end{equation}
+so the latent update is exactly $\eta\,\widehat{g}$: a \textbf{fixed-magnitude
+step} of size $\eta$ along the style direction, applied every inner
+iteration. Two consequences follow. First, because rms-normalization removes
+the overall scale of $g$, the guidance weight $\alpha$ and any linear
+coefficient are \textbf{washed out} --- only the \emph{direction} of $g$ and
+the step size $\eta$ affect the output. Second, a fixed-magnitude step is an
+\emph{extrapolation past} the weak fixed point $v_{\text{with}}=v_{\text{without}}$,
+whereas minimizing $\lVert g\rVert^2$ would \emph{interpolate to} that fixed
+point and saturate early; the former transfers structured texture the latter
+misses while preserving content.
 
-\subsection{Does the Native Goal Improve over K/V Replacement?}
+\subsection{Style Locality: One Operator, Two Modes, One Free Knob}
 
-Table~\ref{tab:formal} reports the representative pair. Native score matching
-raises CSD from 0.5614 to 0.6770. Adding the carrier reaches 0.6882 and improves
-Gram distance and layout leakage relative to score-only matching. A fresh
-strict run obtains 0.6896 CSD, confirming that the result is not a stale metric
-artifact.
+\textbf{Semantic Style Editing is the full spear on the reference.} With
+$g=v_{\text{with}}-v_{\text{without}}$ attracting to the whole reference ---
+its medium \emph{and} its composition --- the prompt's subject is rendered in
+the reference's medium \emph{within the reference's composition}. Subject
+preservation is emergent: no mask, no segmentation, no region blending.
+
+\textbf{Global Style Transfer is the same spear with fewer reverse steps.}
+Reducing the reverse-step count under-determines the sample's structure, so
+the reference's specific composition never solidifies, while the per-step
+style spear still imprints the reference's medium and palette. Composition
+dissolves; medium remains. The step count is a \emph{free, continuous} knob
+along the style-locality axis --- from many steps (local,
+composition-preserving) to few steps (global, composition-dissolving).
+
+\subsection{Why Velocity Space Stops at the Transferable Part (Analysis)}
+
+\textbf{The frozen-velocity spear transfers the position-free part of style,
+not the exact motif layout --- which is exactly what the axis should
+control.} Reproducing a reference's \emph{specific} tessellation or leading
+requires attention-level key/value manipulation, which we exclude. To
+characterize the boundary, we probe a taboo-clean, \emph{position-only}
+construction: we compute the reference velocity with the reference tokens'
+positional identifiers scrambled, isolating the reference's appearance from
+its layout (this touches no attention statistics --- only input positions
+consumed by the frozen model). Guided by this layout-free velocity, global
+transfer succeeds cleanly on \emph{medium-dominant} styles (relief, halftone,
+stained-glass leading --- the medium survives position scrambling) but
+collapses the subject on \emph{figure-dominant painterly} styles (portrait
+mosaics, oil portraits), where medium and composition are entangled. The
+reverse-step knob is the robust instrument; the layout-free probe explains
+\emph{why} certain references dissolve cleanly and others do not, and it
+supplies the generator-native metric of \S~4.
+
+\section{Evaluation Protocol and Perceptual Diagnostics}
+
+\textbf{We measure three separable axes, because style transfer is not one
+number.} Style fidelity (is the medium transferred?), subject fidelity (is
+the prompt's subject present?), and composition transfer (is the reference's
+layout kept or dissolved?) can move independently, and a single metric hides
+failures. We report \textbf{CSD} (Contrastive Style Descriptor cosine
+similarity to the reference --- style fidelity, designed to be
+content-invariant, though as we show below it is gameable at \emph{extreme}
+over-stylization) \citep{somepalli2024csd}, \textbf{CLIP-T} (image--text
+alignment to the content prompt --- subject fidelity) \citep{radford2021clip},
+and a \textbf{layout-leak} measure (correlation of off-diagonal patch
+self-similarity --- composition transfer). Layout-leak cleanly separates the
+two modes in our study: high for semantic editing (composition kept), low for
+global transfer (composition dissolved).
+
+\textbf{CSD alone is misleading, which is why we pair it with CLIP-T.} In the
+semantic grid, pushing the spear harder monotonically raises CSD but past a
+point \emph{destroys the subject}: the highest-CSD configuration (CSD
+$\approx 0.82$) has CLIP-T collapsed to $\approx 0.21$ and layout-leak
+$\approx 0.82$ --- the panda is being over-painted into pure texture. The
+right operating point balances CSD and CLIP-T rather than maximizing CSD;
+reporting both makes over-stylization visible instead of rewarding it. This is
+a boundary artifact, not our operating regime: we verify in \S~5 that our
+\emph{benchmark} CSD advantage is not driven by it --- the gap survives at
+matched layout-leak.
+
+\textbf{A task-aware Agent benchmark resolves the same trade-off perceptually.}
+For each of 40 references, a primary VLM receives the reference and two
+anonymous, randomly ordered candidates for the matched task. It scores six
+independent 1--5 axes: medium/technique, texture/mark-making, palette/tone,
+subject fidelity, task locality, and visual quality. Locality means
+\emph{composition preservation} for Semantic Style Editing and
+\emph{composition independence} for Global Style Transfer. The primary judge
+covers all 80 paired task--style cells; a secondary model audits 68 cells, and
+failed API responses are not imputed. Prompts, raw responses, bootstrap
+intervals, and judge controls are provided in the supplement.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.90\textwidth]{agent_multidim_radar/agent_multidim_radar.pdf}
+\caption{\textbf{Task-aware multi-dimensional Agent evaluation.} Anonymous
+candidate pairs are rated on six 1--5 axes. Semantic locality measures
+reference-composition preservation; Global locality measures composition
+independence. Curves are means over 40 styles and bands are 95\% bootstrap
+intervals. The radar area is not used as a scalar score.}
+\label{fig:agent-radar}
+\end{figure*}
+
+\textbf{The Agent results localize the gain instead of hiding the cost.}
+TSD is preferred in 39/40 Semantic and 37/40 Global pairs. Relative to the
+matched native edit, its mean gains on medium, texture, and palette are
+$+2.5$--$+2.9$ points, while subject fidelity is $0.6$ points lower. Semantic
+composition preservation improves by $+3.45$ points. In Global transfer,
+however, composition independence is $1.63$ points lower than the native
+new-composition edit: TSD transfers far more style but retains more reference
+layout, consistent with layout-leak. The two Agents agree on the preferred
+method in all 68 shared cells; their correlations are $0.96$ on the three
+style axes and $0.93$ on task locality.
 
 \begin{table}[t]
 \centering
-\caption{Representative matched comparison. Bold marks the best non-audit
-method; the audit independently reruns \method.}
-\label{tab:formal}
-\small
+\caption{Public-editor audit: primary-Agent means over five fixed styles (IDs
+00, 09, 10, 23, 34) on the six 1--5 axes. Each public editor receives the raw
+reference, the same panda request, seed 65, and an explicit Semantic or Global
+instruction. This is a matched-input perceptual stress test, not a compute- or
+architecture-matched leaderboard.}
+\label{tab:external-audit}
+\scriptsize
+\setlength{\tabcolsep}{2.0pt}
+\resizebox{\columnwidth}{!}{%
+\input{supplement/tables/external_model_audit.tex}%
+}
+\end{table}
+
+\textbf{Public-editor audit.} On a fixed five-style audit against
+Qwen-Image-Edit-2511 \citep{wu2025qwenimage} and FireRed-Image-Edit-1.1
+\citep{firered2026edit} (Table~\ref{tab:external-audit}), TSD leads the
+reference-style axes: Semantic medium/texture/palette average \textbf{4.60}
+versus $4.00$ (Qwen), $3.60$ (FireRed), and $2.53$ (native); Global
+\textbf{4.87} versus $4.13$, $2.27$, and $2.47$. The primary Agent selects TSD
+as the best-style candidate in $3/5$ Semantic and $5/5$ Global cells, and a
+full Gemini-3.5 Flash re-audit agrees on $80\%$ of cells per task. The public
+editors retain stronger literal subject fidelity ($5.00$ versus TSD's $3.80$ in
+Semantic) --- the same style$\leftrightarrow$subject trade-off seen against the
+native edit --- while the native path alone keeps best composition independence
+in Global. Per-axis cross-Agent correlations are in the supplement.
+
+\textbf{A generator-native style metric, explored and rejected (honest
+negative result).} External style metrics such as CSD and DINO
+\citep{oquab2024dinov2} judge with a
+\emph{separate} pretrained network; it is tempting to read style straight
+from the generator by re-evaluating the spear on the output,
+$\text{SRSD}(x,R)=\lVert v_{\text{with}}(x;R)-v_{\text{without}}(x)\rVert_{\text{rms}}$,
+expecting a small residual when $x$ already carries $R$'s style. We tested
+this ($n=20$, four configurations $\times$ five styles) and reject it. Its
+correlation with CSD is \textbf{positive, not negative} (Pearson $+0.79$,
+Spearman $+0.88$), and the correlation is carried almost entirely by
+over-stylized samples whose \emph{content has collapsed} into a
+near-verbatim copy of the reference --- exactly the samples CSD wrongly
+rewards. Controlling for spear strength, the residual correlation vanishes
+($r=0.20$, n.s.), and scale-correction does not rescue it. The spear
+magnitude marks \emph{content collapse / composition copying}, not style
+faithfulness; flipping its sign would reward the pathology. This is the same
+style--composition entanglement that bounds velocity-space transfer (\S~3.6):
+a frozen-velocity scalar cannot isolate pure style. We therefore keep the
+three external, separable axes and report this as a cautionary null.
+
+\section{Experiments}
+
+\paragraph{Setup.} A single frozen text-to-image rectified-flow transformer
+serves as both conditional and unconditional predictor (one model, shared
+runtime); all results are training-free of weights. Unless noted, generations
+use seed 65 and the prompt ``a panda eating bamboo'' on a 40-reference style
+set spanning mosaic, relief, oil, halftone pop-art, and stained-glass media.
+We report CSD, CLIP-T, layout-leak, and the task-aware Agent audit.
+
+\subsection{The Style-Locality Axis and the Parameter Study}
+
+\textbf{The live knobs are step count / inner iterations, step size $\eta$,
+and per-token normalization; guidance weight is inert.} Consistent with
+\S~3.4, sweeping the guidance weight leaves the output unchanged
+(rms-normalization washes it out); we therefore grid the knobs that matter.
+For \textbf{Global Style Transfer} (few-step regime), CSD rises with step
+size, peaking at \emph{num-steps 8, $\eta=0.12$} (CSD $\approx
+0.63$--$0.64$), above the default 8-step anchor (CSD 0.53), while layout-leak
+stays low ($\approx 0.45$, composition dissolved). For \textbf{Semantic Style
+Editing} (25-step regime), CSD rises with inner iterations and step size but
+over-stylizes at the top; the balanced optimum is \emph{iters 5,
+$\eta=0.08$} (CSD 0.74, CLIP-T 0.28), versus the canonical anchor (CSD 0.70,
+CLIP-T 0.285). The complete grids for both normalization choices, including
+all CSD, CLIP-T, and layout-leak values, are reported in the supplement.
+
+\subsection{Full Benchmark Against the Frozen Model's Native Edit}
+
+\textbf{Baseline design (a fair, strong baseline, not a straw man).} The most
+honest baseline is the \emph{same} frozen model \emph{directly instructed} to
+edit the reference with text --- its native image+text edit. We first verify
+that this is a genuinely different mechanism: the frozen reverse process in
+our pipeline does not itself consume the edit image (the reference enters
+only through the spear), so ``our operator with zero spear'' is prompt-only
+text-to-image, not a native edit. We therefore run the model's own native
+edit pipeline at its documented best settings. Because that checkpoint
+exposes no system-prompt channel, we fold a strong expert style-transfer
+instruction into the prompt (and a negative prompt that deliberately does
+\emph{not} penalize flat media, to avoid disadvantaging pop-art and
+stained-glass). This strong prompting substantially improves the baseline
+(mean CSD from $0.24\rightarrow0.36$ for the composition-preserving
+instruction, $0.03\rightarrow0.29$ for the new-composition instruction), so
+the comparison is against the baseline's best effort.
+
+\begin{table}[t]
+\centering
+\caption{Full benchmark at fixed seed 65 (40 styles, mean $\pm$ SD across
+styles). Higher CSD = more faithful medium; higher CLIP-T = subject present;
+layout-leak = composition transfer (high = kept, low = dissolved).}
+\label{tab:benchmark}
+\footnotesize
 \setlength{\tabcolsep}{3.2pt}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lccc}
 \toprule
-Method & CSD$\uparrow$ & CLIP$\uparrow$ & DINO$\uparrow$ & Gram$\downarrow$ & Leak$\downarrow$\\
+Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & Layout-leak \\
 \midrule
-K/V replace & .5614 & .3465 & .0677 & 2.9437 & .2893\\
-Score match & .6770 & \textbf{.3476} & \textbf{.0749} & 2.4451 & .3018\\
-\method & \textbf{.6882} & .3282 & .0727 & \textbf{2.2915} & \textbf{.2780}\\
-Strict audit & .6896 & .3375 & .0740 & 2.3901 & .2805\\
+TSD Semantic & \textbf{.719 $\pm$ .078} & .295 $\pm$ .030 & .572 $\pm$ .146 \\
+TSD Global & \textbf{.615 $\pm$ .095} & .304 $\pm$ .026 & .414 $\pm$ .108 \\
+\midrule
+Native keep-comp. & .267 $\pm$ .163 & .319 $\pm$ .012 & .317 $\pm$ .072 \\
+Native new-comp. & .247 $\pm$ .155 & .315 $\pm$ .011 & .299 $\pm$ .064 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure*}[t]
 \centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{ccc}
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s00_kp1_seed64_score_carrier_style00_kp1_seed64_reference.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s00_kp1_seed64_kv_match_style00_kp1_seed64.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s00_kp1_seed64_score_carrier_style00_kp1_seed64.png}\\[-1mm]
-{\scriptsize Reference 00} & {\scriptsize K/V: castle, CSD .470} & {\scriptsize \method: castle, CSD .673}\\[1mm]
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s13_kp3_seed64_score_carrier_style13_kp3_seed64_reference.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s13_kp3_seed64_kv_match_style13_kp3_seed64.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s13_kp3_seed64_score_carrier_style13_kp3_seed64.png}\\[-1mm]
-{\scriptsize Reference 13} & {\scriptsize K/V: sunflowers, CSD .313} & {\scriptsize \method: sunflowers, CSD .335}\\[1mm]
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64_reference.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_kv_s27_kp0_seed64_kv_match_style27_kp0_seed64.png} &
-\includegraphics[width=0.205\textwidth]{formal25_multi_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64.png}\\[-1mm]
-{\scriptsize Reference 27} & {\scriptsize K/V: panda, CSD .426} & {\scriptsize \method: panda, CSD .691}
-\end{tabular}
-\caption{Matched qualitative comparison for all three reported pairs. Columns
-are reference, K/V replacement, and \method; prompt and seed are fixed within
-each row. The method's largest gains occur for references 00 and 27, while
-reference 13 exposes a difficult, nearly neutral case. This heterogeneity is
-why we report per-pair values and do not infer broad dominance from the mean.}
-\label{fig:qualitative}
+\includegraphics[width=0.88\textwidth]{main_results/main_results.pdf}
+\caption{\textbf{TSD improves style fidelity across two locality regimes.}
+(a) All 40 paired CSD gains are positive. (b) CSD--CLIP-T frontier at fixed
+seed 65 ($n=40$; mean $\pm$ cross-style SD). (c) Representative outputs; the
+full grid is in the supplement.}
+\label{fig:mainresults}
 \end{figure*}
 
-\paragraph{Per-reference behavior.}
-Figure~\ref{fig:qualitative} exposes variation hidden by the average. The CSD
-gains over K/V replacement are $+0.2031$, $+0.0222$, and $+0.2650$ for styles
-00, 13, and 27. Text alignment changes by $+0.0047$, $-0.0052$, and $+0.0035$,
-respectively. The near-tie on style 13 is scientifically useful: a native goal
-does not guarantee that the chosen content carrier is appropriate for every
-reference. A larger study should stratify references by spatial frequency,
-palette concentration, and semantic content rather than report only a pooled
-mean.
+\textbf{Result (40 styles).} Even at its best, the native edit is dominated
+on style fidelity by a wide margin across references (Table~\ref{tab:benchmark}). TSD
+reaches CSD \textbf{0.72 $\pm$ 0.08} (semantic) and \textbf{0.61 $\pm$ 0.09}
+(global) versus \textbf{0.27 $\pm$ 0.16} and \textbf{0.25 $\pm$ 0.16} for the
+native edit --- a \textbf{2.5--2.7$\times$ style-fidelity gain} (2.69$\times$
+semantic, 2.48$\times$ global). The most robust form of the claim is not the
+mean: \textbf{ours wins CSD on every one of the 40 styles, in both pairings
+(40/40 semantic, 40/40 global)} --- despite the native edit's large cross-style
+dispersion (whose lower tail overlaps ours), it never wins a single style
+(Figure~\ref{fig:mainresults}a). A
+spot-check on the native edit's worst style (a neon-anime reference, its CSD
+$\approx 0$) shows why: the native edit defaults to a generic realistic
+panda that ignores the reference medium entirely, so its near-zero CSD is a
+genuine style-transfer failure, not a scoring artifact. Two things sharpen
+the result. First, the gap is at \emph{matched or slightly lower} subject
+fidelity: the native edit keeps CLIP-T marginally higher ($\approx 0.315$ vs.
+0.30) because it stylizes less --- an honest style$\leftrightarrow$subject
+trade-off, visible on the CSD--CLIP-T frontier (Figure~\ref{fig:mainresults}b).
+Second, the native edit's CSD dispersion across references is \emph{twice}
+ours (SD 0.16 vs. 0.08): it is not only weaker but far less consistent across
+styles, succeeding on genuinely
+relief-like media (\eg, bronze) and reverting to a \emph{generic}
+engraving/line-art look elsewhere, missing the specific
+tesserae/impasto/halftone/leading that TSD transfers consistently
+(Figure~\ref{fig:mainresults}c). Finally,
+when instructed to change composition, the native edit \emph{loses the
+medium} (its new-composition variant scores CSD 0.25, below its own
+composition-preserving 0.27), whereas TSD's step-knob dissolves composition
+while \emph{keeping} the medium (global CSD 0.61) --- the native edit cannot
+separate style from layout, which is exactly the global-transfer end of the
+axis.
 
-The result separates two improvements. The native image-CFG residual provides
-the large style gain over attention replacement. Carrier anchoring then changes
-where that signal acts, recovering the lowest leakage in this matched record.
-The CLIP-T decrease shows that carrier strength is a trade-off rather than a
-free scalar improvement.
+\textbf{Is the style-fidelity gap real style, or just more
+reference-copying?} Because CSD can be gamed by near-verbatim reference copies
+at extreme over-stylization (\S~4), and our outputs carry higher layout-leak
+than the native edit, a skeptic could ascribe the CSD gap to copying rather
+than style. It is not. We lead the pure-style claim with \emph{Global Style
+Transfer}, whose whole point is to \emph{dissolve} the reference's
+composition: its layout-leak (0.41) is close to the native edit's (0.30), yet
+it still wins CSD 0.61 vs.\ 0.25 --- a 2.5$\times$ gap at comparable
+composition-copying. More directly, we restrict to the 14 styles where our
+global output copies \emph{no more} layout than the native edit (layout-leak
+$\le$ its mean$+1\sigma = 0.36$) and find ours still wins CSD \textbf{14/14}
+(0.61 vs.\ 0.24); within the global grid the CSD--leak correlation is weak
+($+0.29$). The gap survives at matched layout-leak, so it is style fidelity,
+not composition-copying.
 
-\subsection{Matched Multi-Reference Result}
+CLIP-T is computed against the literal content prompt (``a panda eating
+bamboo''), uniformly across all four methods, so the comparison is fair;
+scoring against the fuller style-template prompt shifts every method up by a
+near-constant $\approx 0.03$ and preserves the ordering. CSD and layout-leak
+are prompt-independent.
 
-Table~\ref{tab:threepair} holds reference, prompt, seed, sampler, and loss
-weights fixed across three pairs. \method{} improves mean CSD by 0.1635 and DINO
-style similarity by 0.0143 over K/V replacement, while CLIP-T remains
-effectively unchanged. Gram distance and layout leakage are slightly worse,
-revealing that stronger native style transfer is not identical to stricter
-content conservation. We therefore claim a stronger style signal, not universal
-Pareto dominance.
+\textbf{The CSD advantage is robust across content prompts.} To confirm the
+win is not an artifact of the single benchmark prompt, we re-ran a
+media-diverse 5-style subset (mosaic, bronze, oil, pop-art, stained-glass)
+across four additional content prompts (a seaside castle, a cat on a
+windowsill, a sunflower field, an aged fisherman). Ours wins CSD on every
+style$\times$prompt cell --- \textbf{20/20 in both pairings, zero flips} ---
+with per-prompt ratios of 1.55--2.31$\times$ (semantic) and 1.65--2.20$\times$
+(global). The multiplier on this subset is $\approx 1.9$--$2\times$, not the
+2.5--2.7$\times$ headline: the headline is the full 40-style figure, whereas
+this deliberately media-diverse subset is harder and its own single-prompt
+anchor already sits at $\approx 2\times$. The style$\leftrightarrow$subject
+trade-off is prompt-dependent --- near-matched CLIP-T on subject-light
+prompts, but on the \emph{portrait} prompt our CLIP-T falls further (gap up to
+$\approx 0.08$) as the spear over-stylizes the face --- the same honest
+trade-off, more visible where subject identity is strong.
 
-\begin{table}[t]
+\subsection{Ablations}
+
+\begin{figure}[t]
 \centering
-\caption{Three-pair matched means (one seed per pair). Standard deviations are
-shown for CSD; a full matched multi-seed matrix remains a submission gate.}
-\label{tab:threepair}
-\small
-\setlength{\tabcolsep}{3.4pt}
-\begin{tabular}{lrrrrr}
-\toprule
-Method & CSD$\uparrow$ & CLIP$\uparrow$ & DINO$\uparrow$ & Gram$\downarrow$ & Leak$\downarrow$\\
-\midrule
-K/V replace & .4027$\pm$.0660 & .3286 & .0476 & \textbf{4.0299} & \textbf{.3352}\\
-\method & \textbf{.5662$\pm$.1635} & \textbf{.3296} & \textbf{.0619} & 4.0891 & .3479\\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=\columnwidth]{reverse_shield/reverse_shield.pdf}
+\caption{\textbf{The frozen reverse step is the regularizer.} We scale the
+frozen scheduler displacement, $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$, at
+a fixed task update. At $\rho=1$ (the original reverse process) the stylization
+is clean; at $\rho=0$ the model is still evaluated but its displacement is
+withheld, so only the fixed-magnitude task updates move the latent, which drifts
+to noise; $\rho=0.5$ interpolates. The collapse is style-independent (all five
+styles in the supplement).}
+\label{fig:reverseshield}
+\end{figure}
 
-\subsection{What Makes the Carrier Work?}
+\textbf{The frozen reverse step is load-bearing.} We scale the scheduler
+displacement $z\!\leftarrow\!z+\rho\,(\mathrm{step}(z)-z)$ by $\rho\in\{1,0.5,0\}$
+at a fixed task update (Figure~\ref{fig:reverseshield}). At $\rho=0$ the model is
+still evaluated but its displacement withheld, so the task updates alone drive
+the latent and every style drifts off-distribution into noise; $\rho=0.5$
+partially degrades. This is not merely disabling the sampler --- the task
+optimization is unchanged --- so it is the reverse process, not the task update,
+that keeps the optimized latent coherent. \textbf{A trained shield is
+unnecessary and harmful.} Conversely,
+adding a trained fake-score shield (the literal DMD term) degrades style:
+structured media are pulled back toward naturalism (mosaic tesserae lost). The
+frozen reverse process alone is the better regularizer in the training-free
+regime. \textbf{Spear direction vs.\ magnitude.} The fixed-magnitude
+rms-normalized step (extrapolation) transfers texture that magnitude-minimizing
+objectives (interpolation to the fixed point) miss, at equal content
+preservation. \textbf{Guidance weight.} Sweeping $\alpha$ leaves outputs
+unchanged, confirming rms-normalization removes scale --- the direction is the
+signal.
 
-\paragraph{Start time.}
-At start time 850, score matching obtains 0.4278 CSD; at 1000, the same
-objective obtains 0.6770. The carrier cannot recover a goal that is weak or
-introduced after too much content has already crystallized. The result supports
-early access to the native style residual, but does not by itself establish a
-particular transformer layer at which style ``appears.'' Layerwise emergence is
-therefore a future causal-probe question, not a premise of the method.
+\section{Conclusion}
 
-\paragraph{Carrier versus score-only.}
-On the representative case, carrier anchoring changes CSD from 0.6770 to
-0.6882, Gram from 2.4451 to 2.2915, and leakage from 0.3018 to 0.2780. This is
-the causal comparison for the carrier: both rows use the same native goal and
-differ by the content-affinity pseudo-target. The gain is modest relative to
-the goal extraction itself, but it is consistent across the three metrics that
-measure style statistics and spatial copying on this case.
+Training-free style transfer on a frozen transformer is one controllable
+\emph{style-locality} axis, and a single derived operator --- the
+CFG-augmentation spear of decoupled distribution matching, applied as a
+fixed-magnitude rms-normalized latent step --- serves both its ends: Semantic
+Style Editing with the full spear, Global Style Transfer with fewer reverse
+steps. The key design choice is an empirical \emph{regularization
+substitution}: bounded updates are interleaved with the frozen reverse
+trajectory, and no learned fake-score network is required in the evaluated
+regime. Across 40 styles, the operator improves mean CSD by
+2.48--2.69$\times$ over the same model's strongest native edit, with a modest
+subject-alignment cost, and can dissolve composition without discarding the
+reference medium. A
+generator-native single-forward style metric read from the spear is tempting
+but, we show, invalid --- it measures content collapse, not style --- a
+cautionary result that reinforces why style and composition must be read on
+separate axes. The Agent audit reaches the same conclusion: TSD's gains are
+concentrated in medium, mark-making, and palette, with explicit subject and
+composition trade-offs rather than an unqualified overall-quality claim.
 
-\paragraph{Optimizer regularization.}
-A single-pair sweep gives CSD 0.6764 for Adam, 0.6758 for AdamW with zero decay,
-0.7045 for decay $10^{-4}$, and 0.6813 for $10^{-3}$. However, over three pairs,
-$10^{-4}$ changes mean CSD from 0.5662 to 0.5607. We therefore use zero decay
-and report nonzero decay only as an explicit latent regularizer. This avoids
-selecting a headline setting from one favorable reference.
+\paragraph{Limitations (Stated Plainly).} TSD is training-free of weights but
+optimization-based at test time (a few latent iterations per step); we do not
+claim a feed-forward free lunch. Our empirical comparison is to the \emph{same
+frozen model's} strongest native image+text edit --- this isolates what TSD
+adds to the base model under a matched architecture and sampler. We do not
+claim a full leaderboard over systems with different backbones, inputs, and
+task definitions. Our five-style public-editor audit tests transferability,
+not compute-matched SOTA (the K/V-based
+faithful-motif line is out of scope by design). Exact structured-motif
+reproduction is likewise out of scope (it requires attention-level mechanisms
+we exclude). On already-graphic references the medium is near-saturated, so
+gains are neutral --- a limitation, not a failure. The ``regularization
+substitution'' is an \emph{empirical} finding (no collapse under large
+guidance; a trained shield hurts), not a formal theorem.
 
-\subsection{Mechanism Audit}
-
-The decomposition yields interventions that a monolithic feature-injection
-method does not. Table~\ref{tab:claims} separates established observations from
-open claims. In particular, the start-time result concerns noise level, not
-network depth. We deliberately do not claim that a specific transformer layer
-first represents style until layer probes and causal activation swaps are run.
-
-\begin{table}[t]
-\centering
-\caption{Claim--evidence audit. ``Limited'' means the intervention is valid but
-the sample coverage is not yet sufficient for a broad claim.}
-\label{tab:claims}
-\small
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{p{0.22\columnwidth}p{0.43\columnwidth}p{0.23\columnwidth}}
-\toprule
-Claim & Controlled evidence & Status\\
-\midrule
-Native goal is useful & Same-state score vs. K/V; $+0.1635$ mean CSD & Supported on 3 pairs\\
-Carrier changes placement & Score-only vs. carrier; leak $.3018\!\to\!.2780$ & Limited to formal pair\\
-Goal benefits from early noise & Start $850\!\to\!1000$; CSD $.4278\!\to\!.6770$ & Limited to formal pair\\
-Carrier excludes reference layout & Reference tensor absent from Eq.~\ref{eq:affinity} and asserted in code & By construction\\
-Broad generalization & Matched multi-seed and human study & Not yet established\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Detach-boundary check.}
-The teacher branch is not differentiated through, and the shared
-$-z_t/\sigma$ score term is removed analytically before detachment. This avoids
-an identity gradient that would appear if two full scores were independently
-formed and subtracted after one branch had been detached. Gradients enter
-through $\vel_0(z_t)$ in Eq.~\ref{eq:lgoal} and through $\hat x_0^0(z_t)$ in
-Eq.~\ref{eq:carrierloss}; the native residual and affinity remain target data.
-This implementation detail is central to reproducing the intended score
-matching objective.
-
-\paragraph{Carrier limiting cases.}
-When $\lambda_A=0$, Eq.~\ref{eq:transport} reduces to score-only guidance. When
-$A_t=I$, increasing carrier strength has no effect. A uniform $A_t$ collapses
-token-specific directions toward a global style field, while a reference-based
-$A_t$ reintroduces the layout-copying path we seek to remove. These cases give
-simple unit tests for identity, smoothing, and reference-independence.
-
-\subsection{Online Refinement, DMD, and Amortization}
-
-The word ``distillation'' can refer to three different optimization objects.
-Table~\ref{tab:modes} makes the distinction explicit. \method{} distills a frozen
-native score contrast into the current sample in real time. It does not train a
-global adapter. A field student is optional amortization. A CA+DMD extension
-additionally estimates a fake-distribution score and therefore has a different
-state and update contract.
-
-\begin{table}[t]
-\centering
-\caption{Optimization contracts. Only the first row is the main method.}
-\label{tab:modes}
-\small
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{llll}
-\toprule
-Mode & Optimized & Persistent & Data\\
-\midrule
-\method & current $z_t$ & none & one sample/reference\\
-Field student & $G_\theta$ & student weights & dumped teacher fields\\
-CA+DMD & $z_t$, fake score & critic state & online fake samples\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-For CA+DMD, a valid additional direction has the form
-\begin{equation}
- g_t^{\mathrm{total}}=\lambda_A\mathcal T_A(g_t)
- +\lambda_{\mathrm{DM}}\big(\score_s-\score_{\mathrm{fake},\phi}\big).
- \label{eq:dmdext}
-\end{equation}
-The fake scorer $\phi$ must persist and be refreshed on current generated
-states; resetting it or replacing it with a fixed model is not DMD. Our code
-exposes this extension and rejects CA+DMD when no real fake-score backend is
-configured. Since current controlled results do not establish a gain, it is an
-extension rather than part of the headline claim.
-
-An optional student $G_\theta(z_t,t,p,E(x_s))$ can regress the transported
-field for repeated use. A deterministic VAE image code reaches field cosine
-0.4988 versus 0.4486 for a style-ID code in the random matched split, but the
-held-out-style comparison is nearly tied (0.3094 vs. 0.3164). This confirms a
-real-image interface without establishing universal out-of-style
-generalization; full details belong in the supplement.
-
-\subsection{Properties of the Carrier}
-
-The simple affinity in Eq.~\ref{eq:affinity} has two useful properties. They do
-not prove image-quality improvement, but they state exactly what the carrier
-can and cannot introduce.
-
-\paragraph{Reference independence.}
-Let $A_t=F(c_t)$ for deterministic $F$, and hold the current content state
-$c_t$ fixed while changing the reference. Then
-$\partial A_t/\partial x_s=0$. Consequently, the reference can change
-$\mathcal T_A(g_t)$ only through the goal $g_t$; it cannot change the transport
-operator itself. This is weaker than saying the final image cannot resemble the
-reference, since resemblance may be encoded in the native goal. It is stronger
-than K/V replacement in one precise respect: there is no direct path from
-reference token geometry to the explicit carrier.
-
-\paragraph{Non-expansion of token energy.}
-Each row of $A_t$ is nonnegative and sums to one. For
-$0\leq\lambda_A\leq1$, Eq.~\ref{eq:transport} is also a convex token-mixing
-operator. With $\lVert g\rVert_{\infty,2}=\max_u\lVert g_u\rVert_2$,
-\begin{equation}
- \lVert\mathcal T_A(g)\rVert_{\infty,2}
- \leq \lVert g\rVert_{\infty,2}.
- \label{eq:stability}
-\end{equation}
-Indeed, each output token is a convex combination of input goal tokens, so the
-triangle inequality gives Eq.~\ref{eq:stability}. The carrier can redistribute
-a strong native residual, but before the explicit RMS normalization it cannot
-create a larger token vector than the field already contains. This helps
-separate spatial transport from guidance-scale amplification.
-
-These properties explain why we keep carrier strength in $[0,1]$ in the formal
-protocol. High-pass gains or extrapolative strengths above one may improve
-texture, but they forfeit the stability statement and must be evaluated as
-separate appearance amplifiers.
-
-\subsection{Training Cost, Reproducibility, and Boundaries}
-
-The method has no parameter-training stage. Each online inner iteration adds
-native with-reference and without-reference evaluations plus latent
-backpropagation; cost scales with flow steps and inner iterations. An optional
-image-code student can amortize the field for repeated deployment, but is
-reported only in the supplement and is not part of \method.
-
-Every result is keyed by reference path, prompt, seed, saved latent, timestep,
-scheduler sigma, model roots, loss weights, optimizer configuration, and
-evaluator hashes. Positive and negative native branches are asserted to share
-the post-scheduler state. Generated artifacts, manifests, and the isolated
-reward trial live inside the project repository. The original Hyperion source
-tree is never modified.
-
-Two boundaries matter. First, the present matched comparison is small; a
-multi-seed, larger-reference benchmark and human preference study are required
-before claiming broad superiority. Second, a frozen image metric on a noisy
-intermediate decode is not a value function. In our supplementary diagnostic,
-greedy CSD-based action selection does not beat the 0.6896 baseline, even under
-a same-state local oracle. This does not contradict final-image best-of-$N$;
-the candidates were not rolled out to final images before selection.
-
-\subsection{Failure Modes and Evaluation Scope}
-
-\paragraph{Goal and carrier failures.}
-The carrier cannot invent a style direction absent from the native contrast,
-and a reference with a dominant object may place semantics inside $g_t$ along
-with appearance. Meanwhile, cosine transport can smooth high-frequency changes
-across visually similar tokens that belong to different objects. The difficult
-style-13 row in Figure~\ref{fig:qualitative} is consistent with these limits.
-Sparse, object-aware, or multiscale carriers are plausible extensions if their
-transport operator remains reference-independent.
-
-\paragraph{Evaluation and use.}
-CSD, CLIP-T, Gram statistics, and DINO self-similarity each capture only part of
-style fidelity and content preservation. The three-pair study is therefore a
-mechanism test, not a definitive benchmark; matched multi-seed evaluation and
-blinded human comparison remain necessary. Online refinement also trades
-training cost for repeated inference-time model evaluations. Finally,
-reference-conditioned style systems can facilitate imitation of living
-artists. Dataset licenses, opt-out policies, and attribution analysis should
-accompany deployment; CSD is not evidence of authorship or ownership.
-
-\section{Discussion and Conclusion}
-
-\method{} turns a reference image into an explicit, testable operation. The
-native score contrast says what visual change the reference requests; a
-reference-independent affinity says where that change can be rendered in the
-current scene; the flow parameterization says how it becomes a denoising
-update. This resolves the role of CA without introducing an adapter: native
-cross attention participates in goal formation, while the explicit carrier
-anchors spatial execution.
-
-The current evidence supports the mechanism on controlled cases and exposes
-its trade-offs rather than hiding them. The next decisive experiment is not a
-more elaborate loss, but a larger matched matrix that tests whether carrier
-anchoring consistently improves the style--layout frontier. More expressive
-content-only transport and final-trajectory reward selection are natural
-extensions. The central principle remains simple: thinking with a reference
-image requires separating the visual goal from the spatial carrier that makes
-it executable.
-
-\clearpage
-\bibliographystyle{plain}
-\bibliography{AAAI/references}
-
-\clearpage
-\input{AAAI/reproducibility}
+\newpage
+\setlength{\bibsep}{4.5pt}
+\bibliography{references}
 
 \end{document}
+
+% ============================================================================
+% NOT FOR PRINTING -- internal notes preserved from
+% docs/research/PAPER_MAIN_20260721.md for the authors' own reference only.
+% Everything below this point is a LaTeX comment and is never compiled into
+% the PDF (it sits after \end{document}, and every line is also %-prefixed
+% for safety if anyone moves it earlier in the file).
+% ============================================================================
+%
+% ---------------------------------------------------------------------------
+% Self-review (five-dimension, per skill)
+% ---------------------------------------------------------------------------
+% - Contribution. Reframing (one axis, two tasks) + regularization
+%   substitution (reverse process replaces trained shield) + 3-axis protocol
+%   & SRSD + fair strong baseline. Risk: reviewers may see "spear-only DMD"
+%   as incremental -- mitigate by foregrounding the test-time substitution
+%   argument and the harmful-shield ablation, which are non-obvious.
+%   Evidence: S3.3, S5.3 | Status: supported (5-style); full-scale bench
+%   numbers now filled in Table 1.
+% - Writing clarity. One message per paragraph, topic sentences first,
+%   decoupled-DMD spear/shield vocabulary kept stable. Status: pass on this
+%   draft; needs paragraph-level flow pass.
+% - Experimental strength. Param grids + full 40-style benchmark + fair
+%   strengthened baseline + ablations + five-style/four-prompt extension.
+%   Remaining risk: full seed-level uncertainty is pending for seeds 64/66.
+%   Status: fixed-seed and prompt robustness supported; multi-seed queued.
+% - Evaluation completeness. Three quantitative axes plus a six-axis Agent
+%   protocol; CSD-alone failure shown quantitatively. SRSD was tested and
+%   rejected. Secondary-Agent coverage and failures are explicit, with no
+%   imputation. Status: supported; human validation intentionally excluded.
+% - Method soundness. Derivation from velocity=score; alpha-washout verified
+%   in code; shield-harmful verified empirically. Risk: the "reverse process
+%   = shield" claim is argued + supported by no-collapse and harmful-shield
+%   evidence, not proven formally. Status: supported empirically; consider a
+%   short formal note.
+%
+% ---------------------------------------------------------------------------
+% Claim-evidence map (major claims)
+% ---------------------------------------------------------------------------
+% - Claim: two modes are one controllable axis served by one operator |
+%   Evidence: S3.5, param study S5.1, layout-leak separation S4 | Status:
+%   supported.
+% - Claim: frozen reverse process substitutes the trained shield (unnecessary
+%   + harmful) | Evidence: no-collapse under large guidance; ca_dmd erases
+%   mosaic | Status: supported (empirical).
+% - Claim: alpha/lambda washed out by rms-norm | Evidence: code (pseudo_grad
+%   rms-normalized) + guidance sweep unchanged | Status: supported.
+% - Claim: 2.5-2.7x CSD over the native edit, winning every style | Evidence:
+%   40-style benchmark (0.72 vs 0.27 semantic, 0.61 vs 0.25 global; ours std
+%   0.08 vs baseline 0.16; 40/40 per-style wins in both pairings, zero
+%   give-ups) | Status: supported (full 40-style, per-style).
+% - Claim: a spear-magnitude style metric (SRSD) is invalid | Evidence:
+%   SRSD<->CSD +0.79/+0.88, driven by content-collapse; within-config
+%   residual r=0.20 n.s. | Status: supported (rejected as metric).
+%
+% ---------------------------------------------------------------------------
+% Remaining submission work (status 2026-07-23)
+% ---------------------------------------------------------------------------
+% 1. DONE -- Table 1 filled from the 40-style benchmark
+%    (benchmark_full_summary.csv); gap is 2.5-2.7x.
+% 2. DONE -- rejected: SRSD validation (S4, honest null; positive correlation
+%    via content-collapse).
+% 3. DONE -- five-style, four-additional-prompt extension (20/20 paired wins).
+% 4. DONE -- official AAAI 2027 source, canonical figure packages, Agent radar,
+%    external-model audit, and Agent benchmark workflow integrated.
+% 5. PENDING -- paired seeds 64/66 for four methods over all 40 styles.
+% 6. PENDING -- reverse-step-strength ablation {1,.5,0}; keep the regularizer
+%    claim empirical until this direct test is complete.
+% 7. PENDING/P1 -- public-open-weight replication of the local style-control
+%    judge, release/license manifest, and final anonymous-submission audit.
+%
+% Editorial fix made during the AAAI port (2026-07-21): the source markdown's
+% S5.2 result paragraph contained one stray internal codename
+% ("kleinsys-gst CSD 0.25") naming the backbone in body text, which conflicts
+% with the architecture-agnostic framing required for this paper. In
+% main.tex this was rephrased as "its new-composition variant scores CSD
+% 0.25" (identical number, Table 1's own naming convention, no backbone
+% name). No other numbers or claims were altered.

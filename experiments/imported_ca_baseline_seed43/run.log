@@ -1,0 +1,61 @@
+WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
+    PyTorch 2.9.1+cu128 with CUDA 1208 (you have 2.8.0+cu128)
+    Python  3.10.19 (you have 3.12.12)
+  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
+  Memory-efficient attention, SwiGLU, sparse and more won't be available.
+  Set XFORMERS_MORE_DETAILS=1 for more details
+Loading Klein 9B model...
+Loading models from: [
+    "/mnt/local/klein9b/text_encoder/model-00001-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00002-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00003-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00004-of-00004.safetensors"
+]
+Loaded model: {
+    "model_name": "z_image_text_encoder",
+    "model_class": "diffsynth.models.z_image_text_encoder.ZImageTextEncoder",
+    "extra_kwargs": {
+        "model_size": "8B"
+    }
+}
+Loading models from: [
+    "/mnt/local/klein9b/transformer/diffusion_pytorch_model-00001-of-00002.safetensors",
+    "/mnt/local/klein9b/transformer/diffusion_pytorch_model-00002-of-00002.safetensors"
+]
+Loaded model: {
+    "model_name": "flux2_dit",
+    "model_class": "diffsynth.models.flux2_dit.Flux2DiT",
+    "extra_kwargs": {
+        "guidance_embeds": false,
+        "joint_attention_dim": 12288,
+        "num_attention_heads": 32,
+        "num_layers": 8,
+        "num_single_layers": 24
+    }
+}
+Loading models from: "/mnt/local/klein9b/vae/diffusion_pytorch_model.safetensors"
+Loaded model: {
+    "model_name": "flux2_vae",
+    "model_class": "diffsynth.models.flux2_vae.Flux2VAE",
+    "extra_kwargs": null
+}
+No flux2_text_encoder models available. This is not an error.
+Using z_image_text_encoder from [
+    "/mnt/local/klein9b/text_encoder/model-00001-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00002-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00003-of-00004.safetensors",
+    "/mnt/local/klein9b/text_encoder/model-00004-of-00004.safetensors"
+].
+Using flux2_dit from [
+    "/mnt/local/klein9b/transformer/diffusion_pytorch_model-00001-of-00002.safetensors",
+    "/mnt/local/klein9b/transformer/diffusion_pytorch_model-00002-of-00002.safetensors"
+].
+Using flux2_vae from "/mnt/local/klein9b/vae/diffusion_pytorch_model.safetensors".
+Content: /home/ubuntu/chengyanli/items/save/attention_20260426_090948/cnt/00.png
+Style: /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty/27.png
+Timesteps: tensor([999.9999, 993.6862, 986.9130, 979.6287, 971.7730, 963.2760, 954.0557,
+        944.0161, 933.0422, 920.9976, 907.7178, 893.0020, 876.6042, 858.2187,
+        837.4606, 813.8390, 786.7175, 755.2560, 718.3221, 674.3522, 621.1238,
+        555.3689, 472.0755, 363.1470, 214.5965])
+Klein9B OT-Style:   0%|          | 0/25 [00:00<?, ?it/s]Klein9B OT-Style:   4%|▍         | 1/25 [00:00<00:05,  4.26it/s]Klein9B OT-Style:  12%|█▏        | 3/25 [00:00<00:02,  9.13it/s]Klein9B OT-Style:  20%|██        | 5/25 [00:00<00:02,  9.65it/s]Klein9B OT-Style:  28%|██▊       | 7/25 [00:00<00:01,  9.88it/s]Klein9B OT-Style:  36%|███▌      | 9/25 [00:00<00:01,  9.98it/s]Klein9B OT-Style:  44%|████▍     | 11/25 [00:01<00:01, 10.02it/s]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:01<00:01, 10.01it/s]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:01<00:01, 10.01it/s, cl=0.02, sl=3.81]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:02<00:01, 10.01it/s, cl=0.02, sl=3.77]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:02<00:01, 10.01it/s, cl=0.02, sl=3.72]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:02<00:01, 10.01it/s, cl=0.02, sl=3.66]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:02<00:01, 10.01it/s, cl=0.01, sl=3.64]Klein9B OT-Style:  52%|█████▏    | 13/25 [00:03<00:01, 10.01it/s, cl=0.01, sl=3.58]Klein9B OT-Style:  60%|██████    | 15/25 [00:03<00:03,  2.99it/s, cl=0.01, sl=3.58]Klein9B OT-Style:  60%|██████    | 15/25 [00:03<00:03,  2.99it/s, cl=0.01, sl=3.52]Klein9B OT-Style:  60%|██████    | 15/25 [00:03<00:03,  2.99it/s, cl=0.01, sl=3.47]Klein9B OT-Style:  60%|██████    | 15/25 [00:03<00:03,  2.99it/s, cl=0.01, sl=3.44]Klein9B OT-Style:  64%|██████▍   | 16/25 [00:03<00:03,  2.46it/s, cl=0.01, sl=3.44]Klein9B OT-Style:  64%|██████▍   | 16/25 [00:04<00:03,  2.46it/s, cl=0.01, sl=3.39]Klein9B OT-Style:  64%|██████▍   | 16/25 [00:04<00:03,  2.46it/s, cl=0.01, sl=3.31]Klein9B OT-Style:  64%|██████▍   | 16/25 [00:04<00:03,  2.46it/s, cl=0.01, sl=3.30]Klein9B OT-Style:  68%|██████▊   | 17/25 [00:04<00:03,  2.11it/s, cl=0.01, sl=3.30]Klein9B OT-Style:  68%|██████▊   | 17/25 [00:04<00:03,  2.11it/s, cl=0.01, sl=3.22]Klein9B OT-Style:  68%|██████▊   | 17/25 [00:04<00:03,  2.11it/s, cl=0.01, sl=3.14]Klein9B OT-Style:  68%|██████▊   | 17/25 [00:05<00:03,  2.11it/s, cl=0.01, sl=3.11]Klein9B OT-Style:  72%|███████▏  | 18/25 [00:05<00:03,  1.89it/s, cl=0.01, sl=3.11]Klein9B OT-Style:  72%|███████▏  | 18/25 [00:05<00:03,  1.89it/s, cl=0.01, sl=3.05]Klein9B OT-Style:  72%|███████▏  | 18/25 [00:05<00:03,  1.89it/s, cl=0.01, sl=3.00]Klein9B OT-Style:  72%|███████▏  | 18/25 [00:05<00:03,  1.89it/s, cl=0.01, sl=2.95]Klein9B OT-Style:  76%|███████▌  | 19/25 [00:05<00:03,  1.73it/s, cl=0.01, sl=2.95]Klein9B OT-Style:  76%|███████▌  | 19/25 [00:06<00:03,  1.73it/s, cl=0.01, sl=2.86]Klein9B OT-Style:  76%|███████▌  | 19/25 [00:06<00:03,  1.73it/s, cl=0.01, sl=2.81]Klein9B OT-Style:  76%|███████▌  | 19/25 [00:06<00:03,  1.73it/s, cl=0.01, sl=2.78]Klein9B OT-Style:  80%|████████  | 20/25 [00:06<00:03,  1.62it/s, cl=0.01, sl=2.78]Klein9B OT-Style:  80%|████████  | 20/25 [00:06<00:03,  1.62it/s, cl=0.01, sl=2.77]Klein9B OT-Style:  80%|████████  | 20/25 [00:07<00:03,  1.62it/s, cl=0.01, sl=2.73]Klein9B OT-Style:  80%|████████  | 20/25 [00:07<00:03,  1.62it/s, cl=0.01, sl=2.69]Klein9B OT-Style:  84%|████████▍ | 21/25 [00:07<00:02,  1.55it/s, cl=0.01, sl=2.69]Klein9B OT-Style:  84%|████████▍ | 21/25 [00:07<00:02,  1.55it/s, cl=0.02, sl=2.62]Klein9B OT-Style:  84%|████████▍ | 21/25 [00:07<00:02,  1.55it/s, cl=0.01, sl=2.59]Klein9B OT-Style:  84%|████████▍ | 21/25 [00:08<00:02,  1.55it/s, cl=0.01, sl=2.58]Klein9B OT-Style:  88%|████████▊ | 22/25 [00:08<00:01,  1.50it/s, cl=0.01, sl=2.58]Klein9B OT-Style:  88%|████████▊ | 22/25 [00:08<00:01,  1.50it/s, cl=0.02, sl=2.53]Klein9B OT-Style:  88%|████████▊ | 22/25 [00:08<00:01,  1.50it/s, cl=0.02, sl=2.50]Klein9B OT-Style:  88%|████████▊ | 22/25 [00:08<00:01,  1.50it/s, cl=0.02, sl=2.47]Klein9B OT-Style:  92%|█████████▏| 23/25 [00:08<00:01,  1.47it/s, cl=0.02, sl=2.47]Klein9B OT-Style:  92%|█████████▏| 23/25 [00:09<00:01,  1.47it/s, cl=0.02, sl=2.42]Klein9B OT-Style:  92%|█████████▏| 23/25 [00:09<00:01,  1.47it/s, cl=0.02, sl=2.41]Klein9B OT-Style:  92%|█████████▏| 23/25 [00:09<00:01,  1.47it/s, cl=0.02, sl=2.39]Klein9B OT-Style:  96%|█████████▌| 24/25 [00:09<00:00,  1.44it/s, cl=0.02, sl=2.39]Klein9B OT-Style:  96%|█████████▌| 24/25 [00:09<00:00,  1.44it/s, cl=0.02, sl=2.42]Klein9B OT-Style:  96%|█████████▌| 24/25 [00:10<00:00,  1.44it/s, cl=0.02, sl=2.41]Klein9B OT-Style:  96%|█████████▌| 24/25 [00:10<00:00,  1.44it/s, cl=0.02, sl=2.41]Klein9B OT-Style: 100%|██████████| 25/25 [00:10<00:00,  1.42it/s, cl=0.02, sl=2.41]Klein9B OT-Style: 100%|██████████| 25/25 [00:10<00:00,  2.44it/s, cl=0.02, sl=2.41]
+Saved: output_klein9b.png, content_klein9b.png, style_klein9b.png

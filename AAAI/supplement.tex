@@ -1,242 +1,503 @@
-% Supplementary material for the AAAI working draft.
-\documentclass[10pt,letterpaper]{article}
-\usepackage[letterpaper,margin=0.78in]{geometry}
-\usepackage{times}
-\usepackage{amsmath,amssymb,booktabs,graphicx,url}
-\title{Supplementary Material for\\From Visual Goal to Denoising Flow:\\
-Carrier-Anchored Image CFG for Training-Free Style Transfer}
-\author{Anonymous Authors}
-\date{}
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2027}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{natbib}
+\usepackage{caption}
+\frenchspacing
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\graphicspath{{figures/}}
+\input{supplement/tables/diagnostic_macros.tex}
+
+\newcommand{\sg}{\operatorname{sg}}
+\newcommand{\rmsnorm}{\operatorname{rmsnorm}}
+
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+\setcounter{secnumdepth}{0}
+
+\title{Supplementary Material for\\Test-Time Score Distillation:
+Mask-Free Semantic Style Editing with Reverse-Process Regularization}
+\author{Anonymous Submission}
+\affiliations{}
+
 \begin{document}
 \maketitle
 
-\section{Overview}
+\begin{abstract}
+This supplement provides the implementation-exact TSD update, complete
+parameter grids, all 40 per-style benchmark results, multi-prompt results, the
+full qualitative grid, a task-aware multi-dimensional Agent benchmark, an
+external-model perceptual audit, negative fake-score experiments, the rejected SRSD metric analysis, and
+reproducibility details. Machine-readable source data and regeneration scripts
+accompany every quantitative table and figure.
+\end{abstract}
 
-This supplement gives the complete formal protocol, additional field
-conditioning results, and the online image-reward diagnostic. The image-reward
-experiment is included as a negative alignment study. It is not an additional
-claim of the main method.
+\section{Implementation-Exact TSD}
 
-\section{Implementation-Exact Objective}
+\subsection{Same-State Conditional Contrast}
 
-Both native branches receive the same post-scheduler latent $z_t$, timestep,
-prompt metadata, and image-token IDs. Let $v_0(z_t)$ be the differentiable
-without-reference velocity and $v_s(z_t)$ the detached with-reference velocity.
-The score-match implementation first removes the shared state term and computes
+At reverse step $t$, both frozen branches receive the same latent $z_t$,
+timestep, text metadata, and image-token geometry. The target branch additionally
+receives the reference image, while the base branch receives the style text
+without reference-image evidence. Their velocity contrast is
 \begin{equation}
- \Delta s_{0\rightarrow s}=-\frac{1-\sigma}{\sigma}
- \left(v_0(z_t)-\operatorname{sg}[v_s(z_t)]\right).
+g_t = v_\theta(z_t,t,c_{\mathrm{ref}})-v_\theta(z_t,t,c_{\mathrm{text}}).
+\label{eq:supp-contrast}
 \end{equation}
-The coefficient-normalized field enters the direct loss. For carrier anchoring,
-the goal direction has the opposite sign,
-$g_t=-\operatorname{sg}[\Delta s_{0\rightarrow s}]$, and is transported by
-the detached content affinity. The base prediction
-$\hat x_0^0=z_t-\sigma v_0(z_t)$ remains differentiable, while
-\begin{equation}
- x_0^\star=\operatorname{sg}\left[\hat x_0^0+
- \eta\operatorname{RMSNorm}(\mathcal T_A(g_t))\right]
-\end{equation}
-is a detached pseudo-target. Constructing and detaching two full scores before
-their subtraction would leave an unintended identity gradient from the shared
-$-z_t/\sigma$ term.
+Because the velocity-to-score map is affine at fixed $z_t$ and $t$, this
+contrast is proportional to a conditional score difference. Both branches use
+the same frozen network; no adapter or fake-score model is required by TSD.
 
-The implementation includes unit checks for scheduler sigma lookup,
-velocity--score round trips, zero correction at the degenerate endpoint,
-identity transport, row-stochastic affinity, reference-free carrier inputs, and
-absence of gradients through teacher targets.
+\subsection{Detached Pseudo-Target and Reverse Step}
 
-\section{Formal Reproducibility Protocol}
+Let $\hat x_0=z_t-\sigma_t v_\theta(z_t,t,c_{\mathrm{text}})$ be the current
+denoised estimate. TSD forms
+\begin{align}
+\widehat g_t &= \frac{g_t}{\sqrt{\operatorname{mean}(g_t^2)+\epsilon}},\\
+x_0^{\mathrm{tgt}} &= \sg\!\left(\hat x_0+\eta\widehat g_t\right),\\
+\mathcal L_t &= \tfrac12\lVert \hat x_0-x_0^{\mathrm{tgt}}\rVert_2^2.
+\end{align}
+The teacher contrast and pseudo-target are detached; gradients flow only
+through the base clean-state prediction to the current latent. After the inner
+latent updates, the unmodified frozen scheduler advances to $z_{t-1}$. This
+alternation is the operational meaning of reverse-process regularization: a
+bounded task update is repeatedly followed by the model's native inference
+dynamics. It is an empirical design, not a theorem of exact projection or
+distribution matching.
 
-The representative formal pair uses style image `sty/27.png`, prompt `kp0`,
-seed 64, and 512 by 512 output resolution. The main and native teacher roots
-are `/mnt/local/klein9b` and `/mnt/local/klein9b-base`. We use 25 outer steps,
-five nominal inner iterations with the native dynamic schedule, start time 1000,
-AdamW with zero latent weight decay, disabled SLT, disabled warm-start AdaIN,
-and disabled final AdaIN.
+\subsection{Algorithm}
 
-The score-carrier configuration is:
+For each reverse timestep, the implementation performs the following sequence:
+\begin{enumerate}
+\item evaluate the frozen reference-conditioned and reference-free branches on
+the same current latent;
+\item compute and rms-normalize the conditional contrast in
+Eq.~\ref{eq:supp-contrast};
+\item construct a detached $x_0$ pseudo-target at distance $\eta$;
+\item update only $z_t$ for the configured number of inner iterations; and
+\item call the frozen scheduler once to obtain $z_{t-1}$.
+\end{enumerate}
+Rms normalization makes any positive scalar multiplying $g_t$ algebraically
+inert. The effective controls are therefore the reverse-step count, inner
+iteration count, pseudo-step size $\eta$, and normalization granularity.
 
-\begin{center}
-\begin{tabular}{ll}
-\toprule
-Argument & Value\\
-\midrule
-style gradient RMS target & $2.159326726314248\times 10^{-6}$\\
-distance weight & 0.3\\
-content weight & 0.4\\
-carrier temperature & 0.1\\
-carrier strength & 0.75\\
-carrier high-pass gain & 0\\
-carrier loss weight & 0.25\\
-optimizer & AdamW, weight decay 0\\
-\bottomrule
-\end{tabular}
-\end{center}
+\section{Evaluation Protocol}
 
-The exact audit command is:
+\paragraph{Benchmark.}
+The main benchmark contains 40 reference styles and one fixed content prompt,
+``a panda eating bamboo,'' using seed 65. Thus the current error summaries
+measure cross-style dispersion, not random-seed uncertainty. A paired
+three-seed extension over seeds 64--66 is specified in the released benchmark
+protocol and remains pending GPU availability. The prompt extension uses five
+media-diverse styles and four additional prompts: a seaside castle, a cat on a
+windowsill, a sunflower field, and an aged fisherman.
 
-\begin{verbatim}
-/home/ubuntu/chengyanli/flux/bin/python3 \\
-  trial/online_rl_critic/run_image_reward_grpo.py \\
-  --style-id 27 --prompt-id kp0 --seed 64 \\
-  --num-steps 25 --iters 5 --start-time 1000 \\
-  --style-mode score_carrier \\
-  --style-grad-rms-target 2.159326726314248e-06 \\
-  --latent-optimizer adamw --latent-weight-decay 0 \\
-  --dist-weight 0.3 --content-weight 0.4 \\
-  --carrier-temperature 0.1 --carrier-strength 0.75 \\
-  --carrier-highpass-gain 0 --carrier-loss-weight 0.25 \\
-  --disable-slt --adain-alpha 0 --disable-final-adain \\
-  --disable-grpo \\
-  --out-prefix audit_formal_score_carrier_s27_kp0_seed64
-\end{verbatim}
+\paragraph{Metrics.}
+CSD cosine similarity measures reference-style fidelity. CLIP-T measures
+alignment to the literal content prompt rather than the expanded style prompt.
+Layout leak is the correlation between off-diagonal patch self-similarity
+structures of the reference and output; higher values indicate greater
+composition transfer. These axes are interpreted jointly because high CSD can
+coincide with subject collapse at extreme settings.
 
-The unified evaluator uses one manifest for every row and records the CSD,
-CLIP-T, DINO, VGG Gram, and layout-leakage checkpoint hashes. The strict audit
-obtains CSD 0.689619, matching the historical formal result around 0.688.
+\paragraph{Baseline.}
+The native baseline uses the same frozen checkpoint's image+text editing path.
+Its style instruction is folded into the user prompt because the public
+checkpoint exposes no separate system-prompt channel. We evaluate both a
+composition-preserving instruction and a new-composition instruction.
 
-\section{Per-Pair Matched Breakdown}
-
-The main paper reports means over three reference--prompt pairs. Every row
-below uses seed 64 and the same sampler and loss configuration within a method.
-
-\begin{table}[h]
+\begin{figure*}[t]
 \centering
-\caption{Per-pair comparison used by the main-paper mean.}
-\small
-\begin{tabular}{llrrrrr}
+\includegraphics[width=0.88\textwidth]{external_model_audit/external_model_audit.pdf}
+\caption{\textbf{Matched external-model perceptual audit.} Four anonymous
+candidates receive the same reference, request, seed, and task instruction.
+Curves are primary-Agent means over five fixed styles. Semantic locality is
+composition preservation; Global locality is composition independence. This
+is not a compute-matched leaderboard; radar area is not a scalar score.}
+\label{fig:supp-external-audit}
+\end{figure*}
+
+\subsection{Task-Aware Multi-Agent Perceptual Benchmark}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{agent_benchmark_pipeline/agent_benchmark_pipeline.png}
+\caption{\textbf{Task-aware Agent benchmark workflow.} Blinded benchmark
+cells are scored on six task-aware axes by a primary Agent; independent judges
+audit agreement and reference specificity. Schema validation, explicit failure
+logging without imputation, and machine-readable outputs keep the perceptual
+diagnostic auditable.}
+\label{fig:supp-agent-pipeline}
+\end{figure*}
+
+\paragraph{Blinded paired protocol.}
+Each evaluation request contains one style reference and two anonymous
+candidates for the same task and content prompt. Candidate A/B order is
+deterministically randomized by task, style, and judge model. The primary judge
+scores all 40 Semantic pairs and all 40 Global pairs. It assigns integer 1--5
+scores to medium/technique, texture/mark-making, palette/tone, subject fidelity,
+task locality, and visual quality, then records a tie-aware pairwise preference
+and concise visual evidence. Task locality is deliberately mode-specific:
+reference-composition preservation for Semantic Style Editing, and composition
+independence for Global Style Transfer.
+
+\paragraph{Aggregation and audit.}
+The radar plot uses the complete primary judge, reporting means over 40 styles
+and 95\% percentile bootstrap intervals from 10,000 style-level resamples
+(fixed seed 20260723). A secondary VLM independently evaluates 68/80 paired
+cells. Twelve cells repeatedly return empty or malformed API payloads; we report
+that coverage and perform no imputation. The secondary model is used only for
+agreement auditing, not to alter the full primary means. All prompts, order
+mappings, raw responses, failures, normalized scores, and aggregation scripts
+are included with the figure package.
+
+\begingroup
+\centering
+\captionof{table}{Task-aware Agent scores on the existing 40-style benchmark.
+Every entry is the primary judge's mean over 40 references on a 1--5 scale.
+Semantic locality is composition preservation; Global locality is composition
+independence. No polygon-area summary is computed.}
+\label{tab:supp-agent-multidim}
+\scriptsize
+\setlength{\tabcolsep}{2.1pt}
+\resizebox{\columnwidth}{!}{%
+\input{supplement/tables/agent_multidim.tex}%
+}
+\par
+\endgroup
+
+\paragraph{Results and reliability.}
+The primary Agent prefers TSD in 39/40 Semantic pairs and 37/40 Global pairs.
+Across the three style axes, TSD gains 2.5--2.9 points over the matched native
+edit. Subject fidelity decreases by approximately 0.6 points in both modes.
+Semantic locality improves by 3.45 points, whereas Global composition
+independence decreases by 1.63 points; this is the perceptual counterpart of
+the measured layout-leak trade-off. On the 68 shared cells, the two Agents agree
+on the preferred method in 68/68 cases. Pearson correlations are 0.957 for
+medium, 0.960 for texture, 0.977 for palette, and 0.925 for task locality. The
+visual-quality score is less rank-stable ($r=0.431$), although 99.3\% of paired
+ratings remain within one point.
+
+\paragraph{Validity boundary.}
+The primary and secondary task evaluators are both Gemini-family models. The
+separate local Gemma-4-family experiment below validates reference-specific
+style discrimination with a wrong-reference control, but evaluates only the
+style dimension rather than the full six-axis rubric. Thus this protocol is a
+reproducible Agent-based perceptual benchmark and diagnostic, not a replacement
+for human evaluation.
+
+\subsection{Targeted Public-Editor Audit}
+
+\paragraph{Protocol.}
+We additionally compare against the public Qwen-Image-Edit-2511 and
+FireRed-Image-Edit-1.1 checkpoints. This audit reuses the five style IDs fixed
+beforehand by the qualitative figure (00, 09, 10, 23, and 34); no result-based
+style selection is performed. Each public editor receives the raw reference,
+the same panda request, seed 65, 40 inference steps, true CFG 4.0, and an
+explicit Semantic or Global composition instruction. For every task--style
+cell, the Agent sees the reference followed by four anonymous, deterministically
+randomized candidates: TSD, native MMDiT, FireRed, and Qwen. It scores the same
+six axes jointly. Because the public systems use different backbones and were
+trained for general editing, this is a matched-input perceptual stress test,
+not a compute- or architecture-matched leaderboard.
+
+\begingroup
+\centering
+\captionof{table}{Primary-Agent scores for the targeted public-editor audit.
+Entries are means over five fixed styles on a 1--5 scale.}
+\label{tab:supp-external-audit}
+\scriptsize
+\setlength{\tabcolsep}{2.0pt}
+\resizebox{\columnwidth}{!}{%
+\input{supplement/tables/external_model_audit.tex}%
+}
+\par
+\endgroup
+
+\paragraph{Results and boundary.}
+For Semantic editing, TSD averages 4.60 over medium, texture, and palette,
+versus 4.00 for Qwen, 3.60 for FireRed, and 2.53 for native MMDiT; its
+composition-preservation score is 5.00, while its subject-fidelity score is
+lower (3.80 versus 5.00 for all three alternatives). For Global transfer, TSD
+scores 4.87 on the three style axes, versus 4.13, 2.27, and 2.47, respectively.
+The native edit remains best at composition independence (5.00); TSD reaches
+3.40, FireRed 3.00, and Qwen 2.00. The primary Agent selects TSD as the best
+style candidate in 3/5 Semantic and 5/5 Global cells. A complete Gemini-3.5
+Flash audit agrees on the best-style candidate in 80\% of cells for each task.
+Across 40 candidate-level ratings per axis, cross-Agent Pearson correlations
+are 0.89 for medium, 0.90 for texture, 0.77 for palette, 0.90 for subject, and
+0.64 for locality. Visual-quality ranking is unstable ($r=0.15$), although all
+ratings differ by at most one point; we therefore make no external-model claim
+based on that axis.
+
+\begin{figure}[b]
+\centering
+\includegraphics[width=\columnwidth]{external_model_qualitative/external_model_qualitative.png}
+\caption{\textbf{External-model qualitative audit on fixed mosaic style 23.}
+Rows show Semantic and Global tasks; columns show the reference, TSD, native
+MMDiT, FireRed, and Qwen under the matched audit inputs.}
+\label{fig:supp-external-qualitative}
+\end{figure}
+
+\section{Complete Parameter Study}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.94\textwidth]{paramgrid_csd_heatmap/paramgrid_csd_heatmap.pdf}
+\caption{\textbf{Complete parameter-grid summary.} Top: Global Style Transfer
+with 6--10 reverse steps and pseudo-step sizes $0.05$--$0.12$. Bottom:
+Semantic Style Editing with 3--8 inner iterations and pseudo-step sizes
+$0.03$--$0.08$. Each cell reports mean CSD in bold and CLIP-T below for five
+styles. Stars mark the CSD maximum; diamonds mark the selected balanced
+operating point. The maximum semantic CSD setting is rejected because CLIP-T
+falls to about 0.21.}
+\label{fig:supp-paramgrid}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Selected and boundary parameter settings. Means are over five styles.}
+\label{tab:supp-settings}
+\scriptsize
+\setlength{\tabcolsep}{2.4pt}
+\begin{tabular}{lccc}
 \toprule
-Pair & Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+Setting & CSD $\uparrow$ & CLIP-T $\uparrow$ & Leak \\
 \midrule
-00/kp1 & K/V & .4695 & .3035 & .0589 & 4.4740 & .3908\\
-       & GoalCarrier & .6726 & .3082 & .0755 & 4.6541 & .4048\\
-13/kp3 & K/V & .3129 & .3396 & .0438 & 4.9072 & .3290\\
-       & GoalCarrier & .3351 & .3344 & .0410 & 5.1414 & .3382\\
-27/kp0 & K/V & .4257 & .3428 & .0400 & 2.7084 & .2858\\
-       & GoalCarrier & .6908 & .3463 & .0690 & 2.4718 & .3007\\
+Global: 8 steps, $\eta=.12$ & .631 & .284 & .453 \\
+Semantic: 5 iter., $\eta=.08$ & .739 & .280 & .678 \\
+CSD max: 8 iter., $\eta=.08$, token & .823 & .206 & .823 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The result is heterogeneous. Styles 00 and 27 provide most of the CSD gain;
-style 13 is nearly neutral and slightly worse on the auxiliary metrics. We
-therefore treat this experiment as controlled mechanism evidence, not a broad
-benchmark claim. A complete matched multi-seed matrix is the highest-priority
-remaining experiment.
+\subsection{Independent Third-Judge Validation}
 
-\section{Field Conditioning Ablation}
+To reduce dependence on two judges from the same model family, we evaluated
+the same 95 calibration outputs with a third VLM served from a local
+Gemma-4-family checkpoint. The local judge shows moderate agreement with
+Gemini-Pro (Pearson $r=0.694$, Spearman $\rho=0.657$) and Gemini-Flash
+($r=0.588$, $\rho=0.507$); 82.1\% and 84.2\% of ratings, respectively, differ
+by at most one point. More importantly, it passes the pre-specified
+wrong-reference control: the mean style score falls from 4.21 for the correct
+reference to 1.33 for a reproducibly assigned wrong reference, and the correct
+reference scores higher for 89.5\% of outputs. This establishes that the third
+channel reads reference-specific style rather than assigning uniformly high
+scores. It remains a judge-robustness test, not human validation.
 
-The optional field student uses either a style-ID embedding or a deterministic
-reference image code. The image code is formed from the mean and standard
-deviation of flattened VAE tokens. The representative field results are:
-
-\begin{table}[h]
+\begin{figure*}[t]
 \centering
-\caption{Reference conditioning field ablation.}
-\begin{tabular}{lrrrr}
+\includegraphics[width=0.92\textwidth]{open_judge_validation/open_judge_validation.pdf}
+\caption{\textbf{Independent judge validation.} (a) Pairwise Pearson
+correlations among the local Gemma-4-family VLM and two Gemini judges across the
+same 95 outputs; annotations also report Spearman rank correlation. (b) Local
+style scores for the correct reference and a reproducibly assigned wrong
+reference, with lines connecting each output. (c) Fraction of paired judge
+ratings agreeing within one point. These controls support judge robustness
+and style discrimination, but do not replace human evaluation.}
+\label{fig:supp-open-judge}
+\end{figure*}
+
+The global mode has a broad useful region around 8--10 steps. The semantic
+mode is more sensitive because increasing both iteration count and step size
+raises style fidelity and composition copying while reducing prompt alignment.
+We select the balanced point rather than the CSD maximum. The package-local CSV
+contains every observation and all auxiliary metrics.
+
+\section{Complete 40-Style Benchmark}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.93\textwidth]{benchmark_40style_bar/benchmark_40style_bar.pdf}
+\caption{\textbf{Per-style CSD for all 40 references.} TSD Semantic is paired
+with the native keep-composition edit, and TSD Global with the native
+new-composition edit. TSD wins every paired reference in both settings. Dashed
+lines denote method means.}
+\label{fig:supp-full-benchmark}
+\end{figure*}
+
+\begin{table*}[t]
+\centering
+\caption{Per-style CSD. S = Semantic; G = Global; Nat. = corresponding native
+edit. The table is split into two 20-style blocks for compactness.}
+\label{tab:supp-per-style}
+\scriptsize
+\setlength{\tabcolsep}{3.2pt}
+\input{supplement/tables/benchmark_per_style.tex}
+\end{table*}
+
+The table exposes the full support of the 40/40 claim, including styles on
+which the native CSD cosine is near zero. The machine-readable benchmark file
+also contains per-style CLIP-T, layout leak, DINO similarity, VGG-Gram
+distance, and CSD+ values for all four methods.
+
+\FloatBarrier
+
+\section{Multi-Prompt Robustness}
+
+\begingroup
+\centering
+\captionof{table}{Five-style prompt extension. Each cell is a mean over the same five
+references. TSD wins all 20 style--prompt cells for each pairing over the four
+non-anchor prompts.}
+\label{tab:supp-prompts}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\input{supplement/tables/multiprompt.tex}
+\par
+\endgroup
+
+The style advantage persists across scene, object, landscape, and portrait
+prompts. The portrait prompt is the hardest content-preservation case: its CSD
+gain remains large, but the CLIP-T gap grows to approximately 0.08. This is
+consistent with the parameter study and motivates reporting a style--subject
+frontier instead of a single style score.
+
+\section{Why We Omit a Learned Fake Score}
+
+\subsection{The Frozen Reverse Step Is the Shield}
+As introduced in the main text, we scale the frozen scheduler displacement
+$z\leftarrow z+\rho\,(\mathrm{step}(z)-z)$ by $\rho\in\{1,0.5,0\}$ at a fixed
+task update. Figure~\ref{fig:supp-reverseshield} shows the full grid over all
+five fixed styles. At $\rho=0$ the model is still evaluated (the scheduler call
+is retained for matched forward-pass accounting) but its displacement is
+withheld, so only the fixed-magnitude task updates move the latent; every medium
+--- pop-art, bronze relief, oil, mosaic, and stained glass --- then drifts
+off-distribution into the same structureless noise, while $\rho=1$ recovers a
+clean stylization and $\rho=0.5$ interpolates. Because this is not merely
+disabling the sampler (the task optimization is unchanged and the model is still
+evaluated), the style-independent collapse isolates the reverse process as the
+necessary inference-time regularizer, which together with the fake-score
+ablation is why an auxiliary learned network is unnecessary in the evaluated
+single-sample regime.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{reverse_shield/reverse_shield_all5.pdf}
+\caption{\textbf{Reverse-shield ablation, all five fixed styles.} Reverse-step
+strength $\rho\in\{1,0.5,0\}$ at fixed task update (standard setting, seed 65).
+Removing the frozen reverse step ($\rho=0$) collapses every style to noise;
+$\rho=0.5$ partially degrades. This is the style-complete version of the
+main-text ablation.}
+\label{fig:supp-reverseshield}
+\end{figure}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[height=0.49\textheight,keepaspectratio]{qualitative_comparison/qualitative_comparison.png}
+\caption{\textbf{Full five-style qualitative comparison.} Columns show the
+reference, matched native edits, and TSD Semantic/Global for five fixed styles;
+all outputs use the same panda prompt.}
+\label{fig:supp-qualitative}
+\end{figure*}
+
+\begingroup
+\centering
+\includegraphics[width=0.98\columnwidth]{dm_negative/dm_negative.pdf}
+\captionof{figure}{\textbf{Adding a learned fake-score term does not improve the tested
+trajectories.} The literal term removes visible mosaic structure (first row).
+The strongest scheduled variant is slightly worse on style 14, unstable on
+style 21, and visually unchanged on style 34. These outcomes support omitting
+the auxiliary network in this evaluated single-sample regime; they do not
+establish universal equivalence to distribution matching.}
+\label{fig:supp-dm}
+\par
+\endgroup
+
+\paragraph{Scale invariance.}
+Before normalization, the conditional contrast contains the factor
+$(\alpha-1)$. After rms normalization, every positive scalar factor cancels.
+Accordingly, guidance scales 4, 7, 10, 15, and 20 produce near-identical
+updates and no scale-induced collapse. This result should be interpreted as an
+implementation property, not as evidence that arbitrary changes to direction,
+step size, or normalization are harmless.
+
+\paragraph{Structured VLM diagnostic.}
+On hard styles 04, 14, and 16, a structured VLM judge changes style capture
+from partial under score matching to full under TSD, while retaining full
+content preservation; fidelity rises from 2--4 to 4--5 on a five-point scale.
+Style 21 is unchanged at fidelity 4 and remains limited primarily by color.
+This diagnostic is supportive rather than a substitute for human evaluation.
+
+\begin{table}[t]
+\centering
+\caption{Structured VLM diagnostic on hard styles.}
+\label{tab:supp-vlm}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{clcc}
 \toprule
-Condition & Scale & MSE & Cosine & Val. MSE\\
+Style & Method & Fidelity & Style capture \\
 \midrule
-Style ID & 0.25 & 0.0000976 & 0.4486 & 0.000223\\
-Image code & 0.25 & \textbf{0.0000961} & \textbf{0.4988} & 0.000264\\
-\midrule
-Style ID holdout & 0.10 & 0.0001211 & \textbf{0.3164} & --\\
-Image code holdout & 0.25 & \textbf{0.0001206} & 0.3094 & --\\
+04 & Score match & 2 & partial \\
+04 & TSD & 4 & full \\
+14 & Score match & 4 & partial \\
+14 & TSD & 5 & full \\
+16 & Score match & 2 & partial \\
+16 & TSD & 5 & full \\
+21 & Score match / TSD & 4 / 4 & full / full \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The image code is a viable real-reference condition, but the holdout result is
-not a universal win. The paper therefore treats the code path as a principled
-conditioning interface and leaves stronger encoders and larger reference
-families as future work.
+\section{Rejected Generator-Native Metric}
 
-\section{Online Image Reward Diagnostic}
+We tested Score-Residual Style Distance (SRSD), the rms magnitude of the same
+reference-conditioned velocity contrast evaluated on a completed output. If it
+were a style distance, lower residuals should correspond to higher CSD. The
+observed relation is the opposite: across $n=\SRSDN$ outputs, Pearson
+$r=+\SRSDPearson$ and Spearman $\rho=+\SRSDSpearman$. The correlation is
+dominated by over-stylized samples that copy reference composition and lose
+subject identity. Within a fixed configuration, the correlation falls to
+$r=0.20$ and is not significant; schedule-scale corrections do not change the
+conclusion. We therefore reject SRSD rather than invert it, because inversion
+would reward the same content-collapse pathology.
 
-\subsection{What Was Tested}
+\section{Reproducibility Details}
 
-The trial freezes a CSD style model and uses it to score candidate VAE decodes.
-For one fixed pre-action latent and three update scales
-$a\in\{0.5,1.0,1.5\}$, the candidate reward is:
-
-\begin{equation}
- r_t(a)=10\left[\operatorname{CSD}(D(\operatorname{VAE}(z_t+a\Delta z)),x_s)
- -\operatorname{CSD}(D(\operatorname{VAE}(z_t)),x_s)\right]
- +0.1r_{\mathrm{native}}(a).
-\end{equation}
-
-The CSD model is frozen and receives no gradient. The score is computed on a
-noisy intermediate latent, not on the final sampled image.
-
-\subsection{Formal Results}
-
-All rows below use the exact formal score-carrier protocol above and the same
-reference, prompt, seed, evaluator, and initial noise.
-
-\begin{table}[h]
+\begingroup
 \centering
-\caption{Formal online image-reward diagnostic.}
-\small
-\begin{tabular}{lrrrrr}
+\captionof{table}{Paper-facing generation settings.}
+\label{tab:supp-repro}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
 \toprule
-Method & CSD $\uparrow$ & CLIP-T $\uparrow$ & DINO $\uparrow$ & Gram $\downarrow$ & Leak $\downarrow$\\
+Mode & Steps & Iter. & $\eta$ & Norm \\
 \midrule
-Baseline & \textbf{0.689619} & 0.337495 & 0.074046 & 2.390120 & \textbf{0.280550}\\
-GRPO, every stage & 0.644513 & 0.332246 & 0.066161 & 2.330238 & 0.308398\\
-Local reward oracle & 0.681706 & 0.341500 & 0.067942 & \textbf{2.270237} & 0.298368\\
-GRPO, late only & 0.683222 & \textbf{0.354927} & \textbf{0.074363} & 2.280977 & 0.304994\\
+Semantic & 25 & 5 & .08 & rms \\
+Global & 8 & dynamic & .12 & rms \\
 \bottomrule
 \end{tabular}
-\end{table}
+\par
+\endgroup
 
-The late-only schedule activates candidate selection after outer fraction 0.5.
-It avoids most early noisy-state damage and improves several auxiliary
-metrics, but remains slightly below the formal CSD baseline. The local reward
-oracle is also below baseline CSD.
+All settings use the same frozen rectified-flow image+text checkpoint, AdamW
+with zero latent weight decay, seed 65, and no weight updates. Warm-start,
+final AdaIN, and SLT are disabled. All reported quantitative figures use
+package-local source CSVs. All image
+plates contain package-local source images and a deterministic assembly script.
+The framework figure contains its generation prompt, research notes, intent,
+caption, and Kaon GPT Image 2 script in its own directory.
 
-\subsection{Why This Is Not a Best-of-N Contradiction}
+\section{Limitations and Remaining Validation}
 
-The free-lunch argument for best-of-$N$ assumes that all $N$ candidates are
-completed final trajectories and that selection uses the same final objective
-reported in evaluation. The trial does neither. It performs greedy one-step
-selection:
+TSD is optimization-based at inference. The full 40-style benchmark isolates
+its gain over the same checkpoint's native edit; the public-editor comparison
+is limited to a fixed five-style audit and is not a compute-matched leaderboard.
+Exact motifs remain out of scope. The regularization substitution is empirical
+and is directly probed by the reverse-step ablation
+(Figure~\ref{fig:supp-reverseshield}); it is a qualitative knock-out, and paired
+multi-seed uncertainty is queued under the released protocol but remains outside
+the current evaluation budget. Human preference is deliberately excluded from
+the present validation scope.
 
-\begin{equation}
- a_t^\star=\arg\max_a r_t(a),
- \qquad
- r_t(a)=\operatorname{CSD}(\text{noisy intermediate decode}).
-\end{equation}
-
-The final objective is instead:
-
-\begin{equation}
- J(a_t)=\operatorname{CSD}(\text{final decode after all future steps}).
-\end{equation}
-
-In general, $\arg\max_a r_t(a)$ is not $\arg\max_a J(a_t)$. The current
-reward can prefer an update that looks more stylistic before later denoising,
-but that changes the state in a way that harms the future score-carrier
-trajectory. Moreover, the implemented reward includes native shaping and is
-therefore not a pure final-CSD oracle.
-
-A true best-of-$N$ supplementary oracle would fork complete remaining
-trajectories from one state, finish every branch with the original
-score-carrier sampler, decode the final images, and select the final CSD maximum.
-That experiment is more expensive but would have the formal free-lunch property.
-The present study should therefore be named a \emph{local image-reward oracle}
-or \emph{delayed-reward alignment diagnostic}, not best-of-$N$.
-
-\section{Negative Result and Paper Boundary}
-
-The image-reward implementation successfully evaluates the formal score-carrier
-candidate loss without changing the teacher or the main source tree. Its
-negative CSD result is informative: local noisy-state CSD is not a sufficiently
-aligned value function for greedy online action selection. We do not add this
-reward to the main method. The main paper claim remains online native
-score-carrier refinement, with image-reward analysis reserved for this
-supplement.
-The protocol audit, manifests, metrics, logs, and isolated runner are under
-\texttt{trial/online\_rl\_critic/}. Generated metrics are ignored by git, while
-source code and reproducibility documents are committed.
+\input{reproducibility}
 
 \end{document}

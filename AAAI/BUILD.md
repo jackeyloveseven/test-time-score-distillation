@@ -1,61 +1,84 @@
-# Build and Evidence Notes
+# Build and Validation
+
+Status date: 2026-07-23.
 
 ## Compile
 
-From the repository root on `ubuntu-107`:
+Run from the `AAAI/` directory so the author kit, bibliography, tables, and
+figure paths resolve exactly as in the current submission.
 
 ```bash
-mkdir -p AAAI/build
-pdflatex -interaction=nonstopmode -halt-on-error \
-  -output-directory AAAI/build AAAI/main.tex
-bibtex AAAI/build/main
-pdflatex -interaction=nonstopmode -halt-on-error \
-  -output-directory AAAI/build AAAI/main.tex
-pdflatex -interaction=nonstopmode -halt-on-error \
-  -output-directory AAAI/build AAAI/main.tex
+cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709/AAAI
 
-pdflatex -interaction=nonstopmode -halt-on-error \
-  -output-directory AAAI/build AAAI/supplement.tex
-pdflatex -interaction=nonstopmode -halt-on-error \
-  -output-directory AAAI/build AAAI/supplement.tex
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+bibtex main
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+
+pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
+pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
 ```
 
-The draft uses an ordinary two-column article preamble so it remains portable
-without the official AAAI class. Before submission, replace only the preamble
-with the official `aaai2026.sty` author-kit setup and recheck the page budget.
-Do not ship the article preamble as a conference submission.
+Expected outputs:
 
-The expected main PDF is 10 pages: pages 1--7 technical content, pages 8--9
-references, and page 10 the AAAI reproducibility checklist.
+```text
+main.pdf        8 pages, US Letter
+supplement.pdf  8 pages, US Letter
+```
 
-## Validation
+## Figure-Package Validation
+
+From the repository root:
 
 ```bash
-pdfinfo AAAI/build/main.pdf | grep -E 'Pages|Page size'
-pdftotext -layout AAAI/build/main.pdf AAAI/build/main.txt
-grep -nE 'Undefined|Overfull|Underfull|Fatal|Error' AAAI/build/main.log
-pdffonts AAAI/build/main.pdf
+python AAAI/figures/validate_packages.py
 ```
 
-The page size must be US Letter. The warning grep should be empty, all fonts
-must be embedded, references must begin on page 8, and the checklist must begin
-after the two reference pages. Render pages 1--10 to images before submission
-and visually inspect figures, tables, equations, headers, and page breaks.
+The expected result is 15 active packages with all main/supplement figure
+references resolved.
 
-## Evidence Sources
+## PDF Validation
 
-- Story and method boundary: `docs/paper_story_goal_carrier_flow.md`.
-- Formal score-carrier protocol: `docs/formal25_teacher_comparison.md`.
-- Reward protocol correction: `trial/online_rl_critic/PROTOCOL_AUDIT.md`.
-- Three-pair metrics: `results/formal25_multi_matched_metrics_summary.json`.
-- CA-only multi-seed diagnostic: `results/online25_ca_only_multiseed_metrics_summary.json`.
-- Strict baseline artifacts:
-  `trial/online_rl_critic/results/audit_formal_score_carrier_s27_kp0_seed64_score_carrier_style27_kp0_seed64.*`.
+```bash
+pdfinfo main.pdf | rg '^Pages|^Page size'
+pdfinfo supplement.pdf | rg '^Pages|^Page size'
+pdffonts main.pdf
+pdffonts supplement.pdf
+rg -n 'Overfull|Undefined control|undefined references|multiply defined' \
+  main.log supplement.log
+```
+
+Underfull box warnings are acceptable only after visual inspection confirms
+that they do not create incoherent whitespace. Overfull boxes, undefined
+references, missing figures, and unembedded fonts must be fixed.
+
+## Visual QA
+
+Render and inspect every page after any float, caption, table, or bibliography
+change:
+
+```bash
+mkdir -p /tmp/tsd-main-pages /tmp/tsd-supp-pages
+pdftoppm -jpeg -r 130 main.pdf /tmp/tsd-main-pages/page
+pdftoppm -jpeg -r 130 supplement.pdf /tmp/tsd-supp-pages/page
+```
+
+Check figure labels at final size, column balance, page-bottom whitespace,
+caption continuity, anonymity, and bibliography legibility.
+
+## Rebuild Tables
+
+```bash
+cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709/AAAI
+python supplement/build_tables.py
+```
+
+Rebuild tables only from package-local source data. Do not manually edit
+generated table values without updating the source file and regeneration path.
 
 ## Reproducibility Contract
 
-Every paper result must report model roots, reference path, prompt, seed,
-resolution, start time, scheduler, inner-iteration schedule, gradient
-calibration, loss weights, optimizer, and evaluator checkpoint hashes. The
-main code and paper-side trial artifacts remain in this repository; the
-original Hyperion source tree is not modified.
+Every reported experiment must retain matched inputs, seed, method parameters,
+runtime/memory/call accounting, evaluator identity, response coverage, and
+failure handling. Agent failures are logged without imputation. Fixed-seed
+cross-style SD must not be described as seed uncertainty.

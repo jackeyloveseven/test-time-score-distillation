@@ -1,90 +1,117 @@
 # Project State
 
-Status date: 2026-07-14.
+Status date: 2026-07-23.
 
-This file is the shortest authoritative description of the project. If an old
-plan, result log, or handoff conflicts with this file, use this file, current
-source code, and `AAAI/main.tex`.
+This is the shortest authoritative description of the project. The canonical
+paper prose is `AAAI/main.tex`; this file records the operational and empirical
+state around it.
 
-## Current Thesis
+## Paper
 
-The paper studies reference-based style transfer as a goal--carrier--flow
-problem. The native image condition exposes a useful style direction, but that
-direction needs content-aligned spatial support before it is executed by the
-rectified-flow sampler.
+**Title:** *Test-Time Score Distillation: Mask-Free Semantic Style Editing with
+Reverse-Process Regularization*
 
-## Main Method
+**Target:** AAAI 2027, anonymous submission using the local `aaai2027` author
+kit.
 
-The paper-facing method is `score_carrier`, named **GoalCarrier**:
+**Compiled state:** `AAAI/main.pdf` and `AAAI/supplement.pdf` are both eight
+US-Letter pages. Both compile without undefined references, missing figures, or
+overfull boxes. The figure-package validator passes 15 active packages.
 
-1. evaluate native with-reference and without-reference branches on the same
-   latent, timestep, prompt metadata, and image-token IDs;
-2. convert their velocity difference to a score difference after analytically
-   removing the shared state term;
-3. construct a detached token affinity from the current content state only;
-4. transport the native goal through that affinity;
-5. optimize the current latent through differentiable base clean-state
-   prediction and a detached carrier pseudo-target.
+## Method
 
-No global network parameters are trained during the main method.
+Test-Time Score Distillation (TSD) optimizes only the current latent at
+inference. At each reverse step it:
 
-## Current Paper
+1. evaluates one frozen reference-conditioned branch and one frozen
+   reference-free branch at the same latent, timestep, text metadata, and image
+   token geometry;
+2. forms the conditional velocity contrast;
+3. rms-normalizes that contrast and constructs a detached clean-state
+   pseudo-target at fixed update energy;
+4. updates the latent for a small number of inner iterations; and
+5. applies the unmodified frozen reverse step.
 
-Title:
+No model weights, adapters, fake-score networks, or generators are trained.
+The central empirical interpretation is that the frozen reverse process acts
+as an implicit inference-time regularizer. This is not claimed as an exact
+projection theorem or guaranteed distribution matching.
 
-> From Visual Goal to Denoising Flow: Carrier-Anchored Image CFG for
-> Training-Free Style Transfer
+## Two Task Modes
 
-The working PDF is seven technical pages, two reference pages, and one AAAI
-reproducibility-checklist page. The supplement is three pages. Paper compilation
-uses result images available on `ubuntu-107`; the Mac is documentation-only.
+- **Semantic Style Editing:** 25 reverse steps, 5 inner iterations, step size
+  0.08, rms normalization. The reference composition is preserved while its
+  medium is transferred.
+- **Global Style Transfer:** 8 reverse steps, dynamic inner schedule, step size
+  0.12, rms normalization. The output forms a more independent composition
+  while retaining the reference medium.
 
-The prose is conference-level, but broad empirical readiness is not complete.
-The working preamble is also not the official AAAI author-kit style.
+Guidance-scale and positive loss-weight multipliers are algebraically absorbed
+by rms normalization; the live controls are reverse-step count, inner
+iterations, step size, and normalization granularity.
 
-## What Is Validated
+## Established Evidence
 
-- Score/velocity conversion and detach boundaries are implemented and tested.
-- The strict representative GoalCarrier rerun reproduces CSD `0.689619`.
-- On the representative historical comparison, K/V, score match, and
-  GoalCarrier obtain CSD `0.5614`, `0.6770`, and `0.6882`.
-- On three matched pairs, GoalCarrier improves mean CSD from `0.4027` to
-  `0.5662` over K/V and keeps CLIP-T approximately unchanged.
-- The three-pair result does not dominate Gram distance or layout leakage.
-- AdamW is the default latent optimizer; zero decay is the formal setting.
-- A real-image VAE code can condition an optional field student, but held-out
-  style evidence is nearly tied with style-ID conditioning.
-- Local noisy-state CSD reward, including GRPO and a same-state local oracle,
-  does not beat the formal GoalCarrier CSD baseline.
-- Regression verification on 2026-07-14: `53 tests, OK`.
+- Fixed-seed 40-style benchmark, seed 65: TSD Semantic reaches CSD
+  `0.72 +/- 0.08` versus `0.27 +/- 0.16` for the matched native
+  composition-preserving edit. TSD Global reaches `0.61 +/- 0.09` versus
+  `0.25 +/- 0.16` for the matched native new-composition edit.
+- TSD wins CSD on all 40 references in both pairings. The reported standard
+  deviations are cross-style dispersion, not multi-seed uncertainty.
+- Multi-prompt extension covers five fixed styles and four additional prompts.
+- The task-aware Agent benchmark scores six separate axes: medium, texture,
+  palette, subject, task locality, and visual quality.
+- The complete primary Agent supplies reported means. A secondary Agent covers
+  68/80 paired cells and is used only for reliability auditing; persistent
+  malformed responses are recorded without imputation.
+- On shared cells, primary and secondary Agents agree on the preferred method
+  in 68/68 cases. The local wrong-reference control validates reference-specific
+  style discrimination only, not the full six-axis rubric.
+- A fixed five-style matched-input audit includes FireRed Image Edit and Qwen
+  Image Edit. It is a perceptual stress test, not a compute-matched leaderboard.
+- SRSD was tested and rejected as a style metric: its correlation is dominated
+  by over-stylized, content-collapsed outputs.
 
-## What Is Not Established
+## Figures
 
-- broad superiority over many styles, prompts, and seeds;
-- human preference gains;
-- a complete runtime/memory comparison;
-- a winning persistent CA+DMD result;
-- a particular transformer layer where style first appears;
-- universal generalization of the optional image-code student;
-- equivalence between intermediate-image reward and final-image best-of-N.
+- `AAAI/figures/tsd_framework/` is the canonical method schematic.
+- `AAAI/figures/agent_multidim_radar/` is the canonical six-axis radar figure.
+- `AAAI/figures/agent_benchmark_pipeline/` is the canonical Agent evaluation
+  workflow. Its package contains generation and correction prompts, intent,
+  research notes, caption, QA, script, accepted image, and API provenance.
+- Every active figure is self-contained; no loose active PNG is permitted at
+  the figure root.
 
-## Locked Decisions
+## Not Yet Established
 
-- Main method: `score_carrier` / GoalCarrier.
-- `ca_only`: online ablation, not the paper headline.
-- `ca_dmd`: extension requiring a real persistent fake-score backend.
-- `kv_match`: baseline, never the native teacher.
-- Adapter/student: optional amortization only.
-- Native branches must be same-state.
-- Carrier affinity must not receive reference tensors.
-- Original Hyperion directory is read-only.
-- Paper prose lives in `AAAI/main.tex`; Markdown paper notes are summaries.
+- Full three-seed uncertainty over all 40 styles. Seeds 64 and 66 remain to be
+  generated for four methods, 320 cells total.
+- The reverse-shield ablation over strengths `{1, 0.5, 0}` under standard and
+  stress settings.
+- A public-open-weight replication of the third-judge audit.
+- Human preference correlation; human evaluation is intentionally outside the
+  current validation scope.
+- Multi-backbone generality, exact structured-motif reproduction, or a
+  compute-matched external leaderboard.
 
-## Next Gates
+## Current Runtime State
 
-1. Complete matched multi-seed K/V, score match, GoalCarrier, and CA+DMD.
-2. Run carrier identity, shuffled, uniform, and reference-affinity interventions.
-3. Add blinded human style/content preference.
-4. Report wall time, forward/backward counts, and peak memory.
-5. Add a larger license-documented reference set.
-6. Switch to official AAAI style and rerun page/render/font checks.
+The resumable queue is implemented by `scripts/run_remaining_validation.sh`.
+It is **not currently running**. The last driver log stopped at the GPU
+headroom gate, reporting roughly 7 GiB free. Relaunch only after verifying
+sufficient free memory; never terminate foreign GPU processes.
+
+The root filesystem is at 100% utilization with roughly 18 MiB free. Disk
+cleanup is an additional blocker for new experiment outputs and must preserve
+owned results, checkpoints, and foreign data.
+
+## Locked Boundaries
+
+- The controlled baseline is the same native MMDiT image+text edit path that
+  TSD modifies.
+- Published external methods belong in Related Work; FireRed/Qwen appear only
+  in the explicitly bounded five-style audit.
+- TSD is training-free of weights but optimization-based at inference.
+- K/V manipulation and exact motif transfer are outside the method by design.
+- Agent evaluation is a reproducible perceptual diagnostic, not a replacement
+  for human evaluation or automatic ground truth.

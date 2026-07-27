@@ -1,0 +1,44 @@
+"=== per (method, prompt_id) means (kp0=anchor, ALL_kp1-4=mean over kp1-4 only) ==="
+method,prompt_id,n,csd_mean,clip_t_mean
+ours-Semantic,kp0,5,0.7034,0.2849
+ours-Semantic,kp1,5,0.6294,0.2718
+ours-Semantic,kp2,5,0.7245,0.2284
+ours-Semantic,kp3,5,0.6167,0.2819
+ours-Semantic,kp4,5,0.8115,0.2328
+ours-Semantic,ALL_kp1-4,20,0.6955,0.2537
+ours-Global,kp0,5,0.6306,0.2837
+ours-Global,kp1,5,0.5575,0.2599
+ours-Global,kp2,5,0.5862,0.2573
+ours-Global,kp3,5,0.4837,0.3018
+ours-Global,kp4,5,0.7455,0.2193
+ours-Global,ALL_kp1-4,20,0.5932,0.2595
+klein-sem,kp0,5,0.3563,0.3152
+klein-sem,kp1,5,0.3335,0.305
+klein-sem,kp2,5,0.3599,0.2929
+klein-sem,kp3,5,0.2676,0.3212
+klein-sem,kp4,5,0.5223,0.2769
+klein-sem,ALL_kp1-4,20,0.3708,0.299
+klein-gst,kp0,5,0.2869,0.3086
+klein-gst,kp1,5,0.2837,0.3126
+klein-gst,kp2,5,0.3562,0.2881
+klein-gst,kp3,5,0.2577,0.3216
+klein-gst,kp4,5,0.3394,0.3031
+klein-gst,ALL_kp1-4,20,0.3093,0.3063
+
+=== CSD ratio + CLIP-T per prompt per pairing (kp0=anchor) ===
+pairing,prompt_id,ours_csd,klein_csd,ratio,ours_clipt,klein_clipt
+ours-Semantic/klein-sem,kp0,0.7034,0.3563,1.974,0.2849,0.3152
+ours-Semantic/klein-sem,kp1,0.6294,0.3335,1.887,0.2718,0.305
+ours-Semantic/klein-sem,kp2,0.7245,0.3599,2.013,0.2284,0.2929
+ours-Semantic/klein-sem,kp3,0.6167,0.2676,2.305,0.2819,0.3212
+ours-Semantic/klein-sem,kp4,0.8115,0.5223,1.554,0.2328,0.2769
+ours-Global/klein-gst,kp0,0.6306,0.2869,2.198,0.2837,0.3086
+ours-Global/klein-gst,kp1,0.5575,0.2837,1.965,0.2599,0.3126
+ours-Global/klein-gst,kp2,0.5862,0.3562,1.646,0.2573,0.2881
+ours-Global/klein-gst,kp3,0.4837,0.2577,1.877,0.3018,0.3216
+ours-Global/klein-gst,kp4,0.7455,0.3394,2.197,0.2193,0.3031
+
+"=== per-cell win counts per pairing, kp1-4 only ==="
+pairing,wins,total,losses_detail
+ours-Semantic/klein-sem,20,20,[]
+ours-Global/klein-gst,20,20,[]

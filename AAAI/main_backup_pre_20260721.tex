@@ -1,0 +1,480 @@
+\documentclass[letterpaper]{article} % DO NOT CHANGE THIS
+\usepackage[submission]{aaai2027}  % DO NOT CHANGE THIS
+% The serif, sans-serif, and monospaced fonts are loaded automatically by
+% aaai2027.sty (newtxtext, helvet, courier). DO NOT add \usepackage{times},
+% \usepackage{helvet}, \usepackage{courier}, or any other font package.
+\usepackage[hyphens]{url}  % DO NOT CHANGE THIS
+\usepackage{graphicx} % DO NOT CHANGE THIS
+\urlstyle{rm} % DO NOT CHANGE THIS
+\def\UrlFont{\rm}  % DO NOT CHANGE THIS
+\usepackage{natbib}  % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{caption} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\frenchspacing  % DO NOT CHANGE THIS
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\graphicspath{{figs/}}
+
+\newcommand{\vel}{\mathsf{v}}
+\newcommand{\score}{\mathsf{s}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\sg}{\operatorname{sg}}
+\newcommand{\eg}{\emph{e.g.}}
+\newcommand{\ie}{\emph{i.e.}}
+
+% Keep the \pdfinfo as shown here. There's no need
+% for you to add the /Title and /Author tags.
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+\setcounter{secnumdepth}{0} % AAAI: unnumbered sections by default
+
+\title{Style Transfer for Free: Native Same-State Score Residuals\\ in Frozen Rectified-Flow Transformers}
+\author{
+    Anonymous Submission
+}
+\affiliations{
+    %
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Training-free style transfer on modern text-to-image diffusion models typically
+bolts on attention-feature replacement, learned adapters, or hand-designed
+transport heuristics. We show that on a frozen rectified-flow transformer
+(FLUX.2 [klein] 9B) a single, minimal signal suffices: the \emph{native
+same-state image-CFG score residual} -- the difference between the model's
+score with and without a style reference as an image condition, evaluated at
+the \emph{same} noise state -- used to optimize only the current latent at
+inference (AdamW, a few iterations per denoising step). We train nothing and
+add no modules. Across a 40-style benchmark (91 matched cells, multi-seed) the
+method produces sharp, content-preserving transfers over radically different
+styles (impasto, pop-art, engraving, woodcut, anime, expressionism). Crucially,
+we ablate three ``obvious'' additions -- a content-affinity transport carrier,
+timestep-scheduled injection strength, and the latent-optimizer choice -- and
+find that none improves over the plain score residual beyond seed noise: the
+minimal form is deliberate, not incidental. We further show that the standard
+CSD style metric systematically \emph{under-rates} visually excellent transfers
+when the reference's subject differs from the target content, corroborating a
+recent calibration critique, and we report a calibration-aware CSD+ readout
+alongside qualitative evidence.
+\end{abstract}
+
+\section{Introduction}
+
+Diffusion style transfer without training is attractive but crowded with
+machinery: attention-feature replacement, IP-Adapter-style learned encoders,
+and transport or AdaIN heuristics. Each adds assumptions, parameters, or
+reference-coupling to the base model. We ask how little is actually needed
+on a modern \emph{rectified-flow} transformer, whose straight-line ODE and
+native image-conditioning path differ from the DDPM U-Nets most prior
+training-free methods target.
+
+Our answer is a single native signal. A frozen model that supports
+reference-image conditioning already ``knows'' how the style reference should
+bend its prediction: the score difference between conditioning on the
+reference image and not, taken at the \emph{same} noise state, is a
+style-transport direction. We push the current latent along this direction,
+optimizing only that latent -- no weights, no modules -- for a few AdamW steps
+per denoising step. That is the whole method.
+
+This minimalism is not a default we settle for; it is a finding. We tried the
+natural next step -- a content-affinity carrier that reweights the residual
+toward the current image's own tokens, in the spirit of transport-based style
+methods -- and, across five independent probes (a matched ablation matrix, a
+carrier-strength sweep, a timestep-schedule sweep, a calibrated-metric check,
+and a perceptual-change diagnostic), it never produces a robust quality gain.
+Timestep scheduling of the injection strength and the specific latent-optimizer
+choice are likewise inert beyond ordinary seed variance. Reporting these as
+negative results, rather than quietly shipping only the version that
+``worked,'' is itself part of the paper's contribution: it tells a practitioner
+exactly which knobs are worth building and which are not.
+
+\paragraph{Contributions.} (i) A minimal training-free style-transfer method
+for frozen rectified-flow transformers using only the native same-state
+image-CFG score residual, optimizing the latent alone. (ii) A rigorous
+negative-ablation study showing that a content-affinity carrier, timestep
+scheduling, and the latent-optimizer choice each add nothing beyond seed noise
+-- the minimal form is sufficient. (iii) A 40-style multi-seed benchmark and a
+calibration analysis demonstrating that raw CSD under-rates visually excellent
+transfers, with a CSD+ readout and qualitative evidence.
+
+\section{Related Work}
+
+\paragraph{Training-free style transfer in diffusion.}
+Classical neural style transfer matches feature statistics or adaptive
+instance-normalization moments \cite{gatys2016style,huang2017adain}. In
+diffusion models, training-free style transfer typically replaces or shares
+self-attention features between a reference and a generation
+\cite{hertz2024stylealigned,chung2024styleinjection}, building on
+attention-control machinery originally designed for text-driven editing
+\cite{hertz2023prompt,tumanyan2023plugplay,yang2023paint}. A second family
+learns a dedicated reference-conditioning interface: an image adapter
+\cite{ye2023ipadapter}, a block-selective injection scheme
+\cite{wang2024instantstyle}, or a fine-tuned style token
+\cite{sohn2023styledrop}. A third family treats style transfer as an
+optimization or transport problem, using a stochastic-optimal-control
+formulation over a reference descriptor \cite{rout2025rbmodulation} or a
+score-difference objective in the lineage of score distillation sampling
+\cite{poole2023dreamfusion,hertz2023dds,nam2024cds}. Each family adds
+machinery -- replaced attention features, a trained encoder, or a
+hand-designed transport rule. We add none of it: the transport signal is the
+frozen model's own image-conditioned score contrast, and the only thing we
+optimize is the current latent.
+
+\paragraph{Test-time guidance.}
+Test-time guidance methods reshape a diffusion sampling trajectory without
+retraining. Universal and energy-based guidance steer sampling with an
+auxiliary loss gradient \cite{bansal2023universal}; perturbed- and
+smoothed-attention guidance degrade an internal self-attention map to
+synthesize an implicit low-quality branch for contrastive guidance
+\cite{ahn2024pag,hong2024seg}; condition-annealed sampling anneals the
+conditioning signal itself to trade fidelity for diversity
+\cite{sadat2024cads}. Classifier and classifier-free guidance are the
+canonical instance of steering a score by a conditional contrast
+\cite{dhariwal2021diffusion,ho2022cfg}. Our same-state score residual is a
+same-state, image-conditioned instance of this same idea -- a controlled
+contrast between two evaluations of the frozen model -- but we apply it by
+directly optimizing the latent rather than by reweighting the sampling update.
+
+\paragraph{Rectified flow and inversion.}
+Diffusion and score-based models learn a noise-conditional vector field
+\cite{ho2020ddpm,song2021sde}; flow matching and rectified flow instead
+parameterize a direct, near-straight-line velocity field
+\cite{lipman2023flow,liu2023rectified}, adopted by modern large-scale
+text-to-image transformers \cite{esser2024sd3}. Reconciling editing with this
+parameterization has motivated rectified-flow-specific inversion
+\cite{rout2025rfinversion} and inversion-free trajectory construction between
+two text conditions \cite{kulikov2025flowedit}. We never invert a real image
+and never reconstruct a source trajectory; we optimize the model's own
+currently-generated latent using a same-state contrast, exploiting the
+straight-line structure of the ODE to keep that contrast a clean directional
+signal (\S\,Method).
+
+\paragraph{Style-similarity metrics.}
+Style similarity is commonly measured with a contrastive style descriptor
+(CSD) trained to separate artists \cite{somepalli2024csd}. A recent
+calibration study shows that raw CSD cosine similarity gives negative
+discrimination gaps for a majority of a broad artist panel, and proposes a
+corrected CSLS-style readout \cite{frochte2026csd}. This finding motivates our
+calibration analysis (\S\,Results): because CSD conflates style with the
+reference's subject identity, it can penalize a stylistically excellent
+transfer whose prompt subject differs from the reference's subject.
+\emph{Scope.} We do not run externally published style-transfer systems as
+competitor baselines in this paper; every comparison here is an internal
+ablation, a 40-style breadth benchmark, and this calibration analysis (see
+Limitations).
+
+\section{Method}
+
+\subsection{Same-State Score Residual}
+
+Let $z_t\in\R^{L\times C}$ be the current noisy image tokens at sampler
+timestep $t$ with noise level $\sigma_t$, and let $p$ be a content prompt. The
+frozen model exposes a native image-conditioning path: it predicts velocity
+$\vel_s(z_t,t,p,x_s)$ when shown a style reference image $x_s$ as an image
+condition, and $\vel_0(z_t,t,p)$ when that condition is removed. The two
+evaluations must share the same $z_t$, $t$, prompt metadata, and image-token
+IDs -- otherwise their difference contains an uncontrolled state change and
+cannot be interpreted as guidance. We call this the \emph{same-state contract}.
+
+For the flow scheduler
+\begin{equation}
+ z_\sigma=(1-\sigma)x_0+\sigma\epsilon,\qquad \vel=\epsilon-x_0,
+ \label{eq:flow}
+\end{equation}
+we have $\hat x_0=z_\sigma-\sigma\vel$ and
+$\score=-(z_\sigma+(1-\sigma)\vel)/\sigma$. Shared state terms cancel between
+the two branches, giving the \textbf{score residual}
+\begin{equation}
+ g_t \equiv \score_s-\score_0
+ =-\frac{1-\sigma}{\sigma}\left(\vel_s-\vel_0\right).
+ \label{eq:goal}
+\end{equation}
+The implementation resolves $\sigma$ from the scheduler table and sets the
+correction to zero when the inverse conversion is undefined at the degenerate
+endpoint. If the two branches estimate conditional densities $p_s$ and $p_0$,
+Eq.~\ref{eq:goal} is an image analogue of classifier-free guidance:
+\begin{equation}
+\begin{split}
+ g_t&=\nabla_{z_t}\log p_s(z_t\mid p,x_s)-\nabla_{z_t}\log p_0(z_t\mid p)\\
+ &=\nabla_{z_t}\log\frac{p_s}{p_0}.
+\end{split}
+ \label{eq:ratio}
+\end{equation}
+The frozen model -- not a replaced attention feature, not a learned adapter --
+therefore defines what the reference asks the current sample to change.
+
+\subsection{Latent Optimization}
+
+We optimize \emph{only} the current latent $z_t$; no network weights, no
+adapters, and no reference tensors are injected into attention. The
+without-reference branch predicts $\hat x_0^0=z_t-\sigma\vel_0(z_t)$ with
+gradients retained through $\vel_0$; the with-reference branch is detached. The
+goal-matching loss is
+\begin{equation}
+ \mathcal L_{\mathrm{goal}}
+ =\left\lVert\mathcal N\!\left[-\frac{1-\sigma}{\sigma}
+ \big(\vel_0(z_t)-\sg[\vel_s(z_t)]\big)\right]\right\rVert_2^2,
+ \label{eq:lgoal}
+\end{equation}
+where $\mathcal N$ removes the timestep scalar magnitude while preserving field
+direction and relative token energy, and $\sg[\cdot]$ denotes a stop-gradient.
+Two light regularizers keep the update inside the model's valid local
+neighborhood: a distance term $\mathcal L_{\mathrm{dist}}$ that discourages the
+optimized latent from drifting far from its pre-update value, and a content
+term $\mathcal L_{\mathrm{content}}$ that anchors the prompt-conditioned
+prediction. The full per-step objective is
+\begin{equation}
+ \mathcal L=\mathcal L_{\mathrm{goal}}
+ +\lambda_d\mathcal L_{\mathrm{dist}}+\lambda_p\mathcal L_{\mathrm{content}}.
+ \label{eq:full}
+\end{equation}
+AdamW updates only $z_t$ for a handful of inner iterations at every outer
+denoising step (five inner iterations, 25 outer steps, start time 1000 -- a
+high-noise start so the residual is exposed before content has crystallized);
+with zero weight decay it is numerically identical to Adam, and weight decay
+is exposed only as an explicit optimizer ablation (\S\,Results). No warm-start
+color-matching or style-transport heuristic is used; the method described here
+\emph{is} the full method.
+
+\paragraph{One step, in full.} (1) Save the post-scheduler latent $z_t$ and
+resolve its exact $\sigma$. (2) Evaluate $\vel_s$ and $\vel_0$ at that same
+state; form $g_t$ via Eq.~\ref{eq:goal}. (3) Update $z_t$ for a few AdamW
+iterations by minimizing Eq.~\ref{eq:full}. (4) Advance the original flow
+sampler with the optimized $z_t$.
+
+\paragraph{Why rectified flow matters.}
+The straight-line ODE of rectified flow makes the same-state residual a clean
+directional signal end to end: because the velocity field is close to constant
+along the sampling trajectory, a same-state contrast measured at one point
+remains informative for the local update rather than describing a curvature
+effect specific to that timestep. We exploit the model's own image
+conditioning rather than replacing internal attention features, and we
+optimize online, per sample, rather than training a generator or an adapter.
+
+\section{Experimental Setup}
+
+\paragraph{Model.} All experiments use FLUX.2 [klein] 9B, a frozen
+rectified-flow text-to-image transformer with a native image-conditioning
+path; we never fine-tune, LoRA-adapt, or otherwise update its weights.
+
+\paragraph{Benchmark.} Our benchmark pairs 40 style reference images with
+content prompts drawn from five prompt classes (panda, castle, cat,
+sunflowers, fisherman). Every style is evaluated against at least one content
+prompt with at least two random seeds (drawn from $\{64,65,66\}$); the
+resulting 91 matched (style, prompt, seed) cells span all 40 styles.
+
+\paragraph{Metrics.} We report CSD \cite{somepalli2024csd} and a
+CSLS-calibrated CSD+ readout \cite{frochte2026csd} for style similarity,
+CLIP-T \cite{radford2021clip} for prompt adherence, DINO \cite{oquab2024dinov2}
+style similarity, VGG-Gram distance for texture-statistics similarity, and a
+DINO self-similarity correlation with the reference as a layout-leakage proxy
+(lower is better -- it measures how much of the reference's own composition or
+structure has copied into the output).
+
+\paragraph{No external competitor baselines.} We do not compare against
+externally published style-transfer systems (see Limitations). Every
+comparison in this paper is an internal ablation (\S\,Results), a 40-style
+breadth benchmark (\S\,Results), and a calibration analysis (\S\,Results).
+
+\section{Results}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.85\textwidth]{fig_breadth_grid.png}
+\caption{Twelve of the 40 benchmark styles (of 91 total matched cells),
+each labeled with its per-image CSD score. The method transfers sharp,
+content-preserving style across radically different mark-making --
+impasto oil, pop-art halftone, B\&W cross-hatch engraving, woodcut,
+anime/digital painting, and expressionist brushwork -- while the labeled CSD
+scores illustrate the calibration problem discussed in \S\,``Style Metrics
+Are Uncalibrated'': several of the visually strongest transfers (\eg\ style~10,
+CSD~0.38; style~13, CSD~0.30) score no higher, or lower, than weaker ones.}
+\label{fig:breadth}
+\end{figure*}
+
+\subsection{Breadth (Headline)}
+
+Table~\ref{tab:breadth} reports per-style aggregate metrics across all 40
+styles (91 matched cells, multi-seed). Per-style mean CSD is
+$0.600$ (95\% bootstrap CI $[0.562,0.638]$), CLIP-T is $0.311$
+($[0.304,0.318]$, solid prompt adherence), layout-leak is $0.356$
+($[0.331,0.381]$), and VGG-Gram distance is $3.47$. At the level of individual
+cells rather than per-style aggregates ($n=91$), CSD has mean $0.597$ and
+standard deviation $0.130$ -- consistent with, but distinct from, the
+per-style-aggregated headline number above. Qualitatively (Fig.~\ref{fig:breadth})
+transfers are uniformly sharp and content-preserving across impasto oil,
+pop-art halftone, B\&W cross-hatch engraving, woodcut, anime/digital painting,
+and expressionist brushwork: the prompt's subject stays legible while the
+reference's style is faithfully applied.
+
+\begin{table}[t]
+\centering
+\caption{Breadth benchmark: per-style mean over all 40 styles / 91 matched
+cells, multi-seed $\{64,65,66\}$. CIs are 95\% bootstrap intervals over
+per-style means; Gram is a point estimate (no bootstrap CI computed).}
+\label{tab:breadth}
+\small
+\begin{tabular}{lrr}
+\toprule
+Metric & Mean & 95\% CI \\
+\midrule
+CSD$\uparrow$ (style similarity) & 0.600 & [0.562, 0.638] \\
+CLIP-T$\uparrow$ (prompt adherence) & 0.311 & [0.304, 0.318] \\
+Layout-leak$\downarrow$ & 0.356 & [0.331, 0.381] \\
+VGG-Gram$\downarrow$ & 3.47 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Style Metrics Are Uncalibrated -- Read Qualitatively}
+
+Raw CSD systematically under-rates excellent transfers because it entangles
+style with \emph{subject} similarity to the reference, not style alone. Figure
+\ref{fig:underrating} shows two clean examples. Style~25's reference is a
+black-and-white cross-hatch engraving of a hooded archer; applied to a
+sunflower-field prompt, the transfer is a flawless engraving of a sunflower
+field at sunset -- yet it scores CSD only $0.49$, because the archer's subject
+(a person, a bow) has nothing in common with the generated sunflower field.
+Style~10's reference is an expressionist thick-impasto portrait of a bearded
+man; applied to a castle-by-the-sea prompt, the transfer is an excellent
+bold-brushstroke castle painting -- yet it scores CSD only $0.381$, again
+because the reference's subject (a person) and the generated subject (a
+building) differ. This matches the calibration critique of
+\citet{frochte2026csd}, who show raw CSD gives negative discrimination gaps for
+23 of 91 tested artists. We therefore treat mean CSD $0.600$ as a
+\emph{lower bound} on true transfer quality, report the CSLS-calibrated CSD+
+readout \cite{frochte2026csd} alongside raw CSD as a complementary diagnostic,
+and rely on qualitative evaluation (Figs.~\ref{fig:breadth},
+\ref{fig:underrating}) for the headline quality claim.
+
+\begin{figure}[t]
+\centering
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{cc}
+\includegraphics[width=0.47\linewidth]{underrating_style25_ref.png} &
+\includegraphics[width=0.47\linewidth]{underrating_style25_gen.png}\\[-1mm]
+{\scriptsize Style 25 reference (archer)} & {\scriptsize Sunflowers, CSD 0.49}\\[1mm]
+\includegraphics[width=0.47\linewidth]{underrating_style10_ref.png} &
+\includegraphics[width=0.47\linewidth]{underrating_style10_gen.png}\\[-1mm]
+{\scriptsize Style 10 reference (portrait)} & {\scriptsize Castle, CSD 0.381}
+\end{tabular}
+\caption{CSD under-rating. Top: a B\&W cross-hatch engraving reference whose
+subject (an archer) differs from the sunflower-field prompt still transfers
+the engraving style flawlessly, yet scores CSD only 0.49. Bottom: an
+expressionist thick-impasto portrait reference transfers convincingly onto a
+castle-by-the-sea prompt, yet scores CSD only 0.381. Both transfers are
+visually excellent; the low scores reflect subject mismatch with the
+reference, not a style-transfer failure.}
+\label{fig:underrating}
+\end{figure}
+
+\subsection{The Minimal Form Is Sufficient (Negative Ablations)}
+
+We ablate three ``obvious'' additions to the plain score residual. All
+ablation numbers in Table~\ref{tab:ablation} come from a smaller matched
+matrix used specifically for controlled, paired comparisons (not the 40-style
+breadth benchmark of Table~\ref{tab:breadth}), and all deltas should be read
+against the $\pm0.11$ CSD seed-noise floor measured on textured styles
+(\S\,Limitations).
+
+\begin{table*}[t]
+\centering
+\caption{Matched-subset ablations (paired probes; not the 40-style
+benchmark). Every axis is null: no configuration improves over the plain
+score residual beyond the $\pm0.11$ seed-noise floor.}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lll}
+\toprule
+Ablation axis & Configurations tested & CSD (matched subset) \\
+\midrule
+Score residual (base) & matched $3\times3$ matrix & 0.5993 \\
++ Content-affinity carrier & matched $3\times3$ matrix & 0.5935 \\
+Carrier strength & $\{0.5,\ 0.75,\ 1.0\}$ & 0.5912 / 0.5935 / 0.5994 \\
+Timestep schedule & const / back / front / sqrt / cosine & $|\Delta|<0.02$ vs.\ const \\
+Latent optimizer & Adam, AdamW wd $\{0,10^{-4},10^{-3}\}$ & $\Delta\,0.01$--$0.05$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{Content-affinity carrier.}
+A natural next step multiplicatively reweights the score residual toward
+tokens the current content latent already attends to -- a transport carrier in
+the spirit of appearance-transport methods. Across five independent probes it
+is inert or, at best, style-conditional: a matched $3\times3$ ablation matrix
+gives carrier CSD $0.5935$ against $0.5993$ for the plain residual (a wash,
+slightly worse on Gram/layout-leak too); a flat carrier-strength sweep
+$\{0.5,0.75,1.0\}$ never beats the plain residual ($0.5912/0.5935/0.5994$
+against $0.5993$); a timestep-scheduled carrier strength (const, back-loaded,
+front-loaded, $\sqrt{\cdot}$, cosine) changes CSD by less than $0.02$ in every
+case, inside the seed-noise floor; the calibrated CSD+ readout does not rescue
+a carrier win, with two justified evaluation configurations disagreeing even in
+\emph{direction} ($-0.011$ / $-0.029$ on the same style); and a method-delta
+LPIPS diagnostic shows the carrier changes the image substantially on heavily
+textured styles (mean $0.158$, up to $0.560$ on the most textured style,
+against $0.099$ on a flatter style) without any accompanying quality gain on
+any of the four measured axes. The honest characterization is that the carrier
+is mostly inert, and on textured styles it perturbs the image without a robust
+quality gain -- not that it is uniformly a no-op. Mechanistically, a single
+multiplicative term conflates structure-preservation with appearance-transport,
+which likely explains why it helps on no axis consistently.
+
+\paragraph{Timestep scheduling.}
+Scheduling the injection strength across the denoising trajectory (protecting
+content early and pushing style late, or the reverse) produces no effect
+distinguishable from seed noise (Table~\ref{tab:ablation}). Timing and
+magnitude of the residual are not a lever in this setting.
+
+\paragraph{Latent optimizer.}
+Switching between Adam and AdamW with weight decay $\{0,10^{-4},10^{-3}\}$
+moves CSD by only $0.01$--$0.05$, consistent with AdamW at zero decay being
+numerically Adam. This is a robustness check, not a lever: the method is
+insensitive to this choice.
+
+\section{Limitations}
+
+\paragraph{No external published baseline.} This is a scope choice, not an
+oversight: we compensate with the negative ablations (\S\,Results), 40-style
+breadth (\S\,Results), and the calibration analysis (\S\,Results). Reviewers
+may reasonably want a published external comparison; we regard this as
+addable future work rather than as evidence against the present claims, which
+are about the sufficiency of the minimal mechanism and the behavior of its
+natural extensions, not about beating a specific competitor.
+
+\paragraph{ArtFID is not soundly computable at this scale.} Standard ArtFID
+requires a style-side Fr\'echet distance whose covariance is rank-deficient
+when the number of style references (40) is far smaller than the Inception
+feature dimension; we therefore report per-image style/content metrics and
+CSD+ instead of an unstable ArtFID number.
+
+\paragraph{Content-LPIPS needs a no-style baseline set.} A content-preservation
+LPIPS metric requires a matched no-style generation for every prompt, which we
+have not yet generated; this is queued future work.
+
+\paragraph{Seed variance is large on textured styles.} CSD varies by up to
+$\pm0.11$ across seeds on heavily textured styles (\eg\ style~27); ablation
+deltas smaller than this floor are noise, not signal, and we interpret
+Table~\ref{tab:ablation} accordingly throughout \S\,Results.
+
+\section{Conclusion}
+
+On a frozen rectified-flow transformer, training-free style transfer needs
+only the model's native same-state image-CFG score residual, applied by
+optimizing the current latent. Added transport machinery, timestep scheduling,
+and optimizer choice do not help beyond seed noise; the minimal form is
+sufficient and, read qualitatively -- since raw CSD systematically under-rates
+it -- strong and content-preserving across 40 styles. We view the negative
+ablations as being as important to report as the positive result: they mark
+exactly which extensions are not worth building on this mechanism, and where a
+future differentiator would need to look instead.
+
+\bibliography{references}
+
+\end{document}

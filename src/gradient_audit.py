@@ -10,7 +10,9 @@ import torch
 
 
 Tensor = torch.Tensor
-SupportedAuditMode = Literal["score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"]
+SupportedAuditMode = Literal[
+    "score_match", "ca_only", "ca_dmd", "ca_disentangled", "kv_match", "carrier_score", "score_carrier"
+]
 
 
 @dataclass
@@ -117,7 +119,9 @@ def apply_gradient_audit(
     outer_step: int,
     inner_iter: int,
 ) -> GradientAuditResult:
-    if style_mode not in {"score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"}:
+    if style_mode not in {
+        "score_match", "ca_only", "ca_dmd", "ca_disentangled", "kv_match", "carrier_score", "score_carrier",
+    }:
         raise ValueError(f"Unsupported style_mode for gradient audit: {style_mode}")
 
     scale_applied = float(calibration_state.scale)

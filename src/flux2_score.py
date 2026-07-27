@@ -185,6 +185,23 @@ def rms_normalize_field(field: Tensor, *, eps: float = 1e-6) -> Tensor:
     return (field.float() / rms_full).to(dtype=field.dtype)
 
 
+def rms_normalize_field_pertoken(field: Tensor, *, eps: float = 1e-6) -> Tensor:
+    """Per-token normalization: divide each token's channel-vector by its OWN rms so every
+    token gets an equal-magnitude step along its own (coherent) direction. Unlike the global
+    rms-norm, this does not let a high-|g| background set one scalar that crushes the weaker-
+    but-coherent subject signal to a near-zero step. `field` is (B, N, C); rms is over C."""
+    rms = field.float().square().mean(dim=-1, keepdim=True).sqrt().clamp_min(float(eps))
+    return (field.float() / rms).to(dtype=field.dtype)
+
+
+def blend_normalize_field(field: Tensor, *, mix: float, eps: float = 1e-6) -> Tensor:
+    """Blend global rms-norm with per-token norm: mix=0 -> global (current), mix=1 -> per-token.
+    A middle mix lifts the subject step without fully discarding the magnitude prior."""
+    g = rms_normalize_field(field, eps=eps)
+    t = rms_normalize_field_pertoken(field, eps=eps)
+    return ((1.0 - float(mix)) * g.float() + float(mix) * t.float()).to(dtype=field.dtype)
+
+
 def build_pseudo_target_loss(
     x0_pred: Tensor,
     score_pseudo_grad: Tensor,
@@ -203,6 +220,12 @@ def build_pseudo_target_loss(
         pass
     elif normalize_grad_mode == "rms":
         direction = rms_normalize_field(direction, eps=grad_eps)
+    elif normalize_grad_mode == "rms_token":
+        direction = rms_normalize_field_pertoken(direction, eps=grad_eps)
+    elif normalize_grad_mode.startswith("blend"):
+        # "blend" -> 0.5, or "blend0.3" -> 0.3
+        _m = normalize_grad_mode[len("blend"):]
+        direction = blend_normalize_field(direction, mix=(float(_m) if _m else 0.5), eps=grad_eps)
     elif normalize_grad_mode == "l2":
         direction = l2_normalize_field(direction, eps=grad_eps)
     else:

@@ -1,0 +1,86 @@
+[
+ {
+  "style": "27",
+  "gen": "results/formal25_score_match_fullprompt_score_match_style27_kp0_seed64.png",
+  "ref": "results/formal25_score_match_fullprompt_score_match_style27_kp0_seed64_reference.png",
+  "csd": 0.428
+ },
+ {
+  "style": "00",
+  "gen": "results/matrix_score_match_style00_kp1_seed64.png",
+  "ref": "results/matrix_score_match_style00_kp1_seed64_reference.png",
+  "csd": 0.658
+ },
+ {
+  "style": "13",
+  "gen": "results/matrix_score_match_style13_kp3_seed64.png",
+  "ref": "results/matrix_score_match_style13_kp3_seed64_reference.png",
+  "csd": 0.298
+ },
+ {
+  "style": "25",
+  "gen": "results/breadthext_score_match_style25_kp3_seed64.png",
+  "ref": "results/breadthext_score_match_style25_kp3_seed64_reference.png",
+  "csd": 0.49
+ },
+ {
+  "style": "10",
+  "gen": "results/bench40_score_match_style10_kp1_seed64.png",
+  "ref": "results/bench40_score_match_style10_kp1_seed64_reference.png",
+  "csd": 0.381
+ },
+ {
+  "style": "18",
+  "gen": "results/breadthext_score_match_style18_kp2_seed64.png",
+  "ref": "results/breadthext_score_match_style18_kp2_seed64_reference.png",
+  "csd": 0.626
+ },
+ {
+  "style": "02",
+  "gen": "results/breadth_score_match_style02_kp0_seed64.png",
+  "ref": "results/breadth_score_match_style02_kp0_seed64_reference.png",
+  "csd": 0.601
+ },
+ {
+  "style": "21",
+  "gen": "results/bench40_score_match_style21_kp3_seed64.png",
+  "ref": "results/bench40_score_match_style21_kp3_seed64_reference.png",
+  "csd": 0.426
+ },
+ {
+  "style": "07",
+  "gen": "results/breadth_score_match_style07_kp1_seed64.png",
+  "ref": "results/breadth_score_match_style07_kp1_seed64_reference.png",
+  "csd": 0.454
+ },
+ {
+  "style": "15",
+  "gen": "results/breadth_score_match_style15_kp2_seed64.png",
+  "ref": "results/breadth_score_match_style15_kp2_seed64_reference.png",
+  "csd": 0.634
+ },
+ {
+  "style": "34",
+  "gen": "results/breadth_score_match_style34_kp0_seed64.png",
+  "ref": "results/breadth_score_match_style34_kp0_seed64_reference.png",
+  "csd": 0.621
+ },
+ {
+  "style": "04",
+  "gen": "results/bench40_score_match_style04_kp2_seed64.png",
+  "ref": "results/bench40_score_match_style04_kp2_seed64_reference.png",
+  "csd": 0.519
+ },
+ {
+  "style": "30",
+  "gen": "results/bench40_score_match_style30_kp3_seed64.png",
+  "ref": "results/bench40_score_match_style30_kp3_seed64_reference.png",
+  "csd": 0.501
+ },
+ {
+  "style": "36",
+  "gen": "results/breadth_score_match_style36_kp1_seed64.png",
+  "ref": "results/breadth_score_match_style36_kp1_seed64_reference.png",
+  "csd": 0.638
+ }
+]

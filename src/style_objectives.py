@@ -18,7 +18,9 @@ from .flux2_score import (
 Tensor = torch.Tensor
 NormalizationMode = Literal["raw", "coeff"]
 LossKind = Literal["mse", "smooth_l1"]
-StyleMode = Literal["score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"]
+StyleMode = Literal[
+    "score_match", "ca_only", "ca_dmd", "ca_disentangled", "kv_match", "carrier_score", "score_carrier"
+]
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,9 @@ class PseudoGuidanceResult:
 
 
 def validate_style_mode(mode: str, backend_kind: str | None) -> None:
-    valid_modes = {"score_match", "ca_only", "ca_dmd", "kv_match", "carrier_score", "score_carrier"}
+    valid_modes = {
+        "score_match", "ca_only", "ca_dmd", "ca_disentangled", "kv_match", "carrier_score", "score_carrier",
+    }
     if mode not in valid_modes:
         raise ValueError(f"Unsupported style mode {mode!r}; expected one of {sorted(valid_modes)}")
     if mode == "ca_dmd" and backend_kind in {None, "", "none"}:
@@ -98,6 +102,74 @@ def score_match_loss_from_velocities(
     )
 
 
+def disentangled_velocity_delta(
+    v_cR_detached: Tensor,
+    v_c0_detached: Tensor,
+    v_cS_detached: Tensor,
+    *,
+    content_repel: float = 0.0,
+    project: bool = False,
+    eps: float = 1e-8,
+) -> Tensor:
+    """Build the disentangled CA direction ``g_GST`` from the three frozen branches.
+
+    ``v_cR`` = full style prompt + reference edit condition (today's ``ca_only`` with_velocity).
+    ``v_c0`` = content-only prompt, no edit condition (today's ``ca_only`` without_velocity when
+    ``--without-prompt-mode content_only``).
+    ``v_cS`` = full style prompt, no edit condition.
+
+    ``d_R = v_cR - v_c0`` is the same direction ``ca_only`` distills; ``d_C = v_cR - v_cS`` isolates
+    the reference-image contribution. Candidate A (default) blends ``d_R - content_repel * d_C``,
+    which is IDENTICAL to ``d_R`` at ``content_repel=0``. Candidate B (``project=True``) instead
+    removes the component of ``d_R`` along ``d_C`` via orthogonal projection.
+    """
+
+    v_cR = v_cR_detached.detach()
+    v_c0 = v_c0_detached.detach()
+    v_cS = v_cS_detached.detach()
+    d_R = v_cR - v_c0
+    d_C = v_cR - v_cS
+    if project:
+        d_R_f = d_R.float()
+        d_C_f = d_C.float()
+        dot = (d_R_f * d_C_f).sum()
+        denom = d_C_f.square().sum() + float(eps)
+        coeff = (dot / denom).to(dtype=d_R.dtype)
+        return d_R - coeff * d_C
+    return d_R - float(content_repel) * d_C
+
+
+def layout_repel_velocity_delta(
+    v_cR_detached: Tensor,
+    v_c0_detached: Tensor,
+    v_cR_scram_detached: Tensor,
+    *,
+    layout_repel: float,
+) -> Tensor:
+    """Candidate G: subtract the isolated layout component from the reference direction.
+
+    ``v_cR`` = full style prompt + reference edit condition on the COHERENT positional grid
+    (today's ``ca_only`` with_velocity, which copies the reference layout).
+    ``v_cR_scram`` = the same with_velocity re-run with position-scrambled/stripped
+    ``edit_image_ids`` (see :func:`native_edit_teacher.build_layout_free_edit_condition`), so the
+    reference contributes appearance but NOT spatial layout.
+    ``v_c0`` = content-only prompt, no edit condition.
+
+    ``d_R = v_cR - v_c0`` is the direction ``ca_only`` distills (keeps layout). ``d_layout =
+    v_cR - v_cR_scram`` isolates the positional/layout-copying component of the reference. The
+    returned guidance ``g = d_R - layout_repel * d_layout`` keeps appearance while repelling
+    layout. ``layout_repel=0`` reduces ``g`` to ``d_R`` (identical to today's single-view
+    ``ca_disentangled`` at ``content_repel=0``).
+    """
+
+    v_cR = v_cR_detached.detach()
+    v_c0 = v_c0_detached.detach()
+    v_cR_scram = v_cR_scram_detached.detach()
+    d_R = v_cR - v_c0
+    d_layout = v_cR - v_cR_scram
+    return d_R - float(layout_repel) * d_layout
+
+
 def pseudo_guidance_from_velocities(
     mode: StyleMode,
     *,
@@ -110,16 +182,35 @@ def pseudo_guidance_from_velocities(
     lambda_dm: float = 1.0,
     pseudo_step_size: float = 0.05,
     v_fake_detached: Tensor | None = None,
+    v_style_detached: Tensor | None = None,
+    content_repel: float = 0.0,
+    project: bool = False,
     sigma_eps: float = 1e-4,
     normalize_grad_mode: str = "rms",
     grad_eps: float = 1e-6,
+    disentangled_eps: float = 1e-8,
 ) -> PseudoGuidanceResult:
     """Plan B pseudo-gradient objective in score space."""
 
-    if mode not in {"ca_only", "ca_dmd"}:
+    if mode not in {"ca_only", "ca_dmd", "ca_disentangled"}:
         raise ValueError(f"Pseudo guidance is only defined for Plan B modes, got {mode!r}")
 
-    delta_ca_velocity = v_with_detached.detach() - v_without_detached.detach()
+    if mode == "ca_disentangled":
+        if v_style_detached is None:
+            raise ValueError(
+                "style_mode='ca_disentangled' requires v_style_detached (v_cS: full style prompt, "
+                "no edit condition)."
+            )
+        delta_ca_velocity = disentangled_velocity_delta(
+            v_with_detached,
+            v_without_detached,
+            v_style_detached,
+            content_repel=content_repel,
+            project=project,
+            eps=disentangled_eps,
+        )
+    else:
+        delta_ca_velocity = v_with_detached.detach() - v_without_detached.detach()
     delta_ca_score, coeff = velocity_delta_to_score_delta(
         delta_ca_velocity,
         sigma,
@@ -167,6 +258,8 @@ def pseudo_guidance_from_velocities(
 __all__ = [
     "PseudoGuidanceResult",
     "ScoreMatchLossResult",
+    "disentangled_velocity_delta",
+    "layout_repel_velocity_delta",
     "pseudo_guidance_from_velocities",
     "score_match_loss_from_velocities",
     "validate_style_mode",

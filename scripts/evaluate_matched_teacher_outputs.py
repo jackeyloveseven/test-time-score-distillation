@@ -37,6 +37,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dino-model-name", default="vit_base_patch14_dinov2.lvd142m")
     parser.add_argument("--dino-hf-cache-root", default=str(Path.home() / ".cache" / "huggingface" / "hub"))
     parser.add_argument("--torch-cache-root", default=str(Path.home() / ".cache" / "torch" / "hub" / "checkpoints"))
+    parser.add_argument(
+        "--csls-k",
+        type=int,
+        default=5,
+        help=(
+            "Requested k for the CSD+ CSLS readout (Frochte 2026, arXiv:2605.09030, Sec. 5). "
+            "The paper's own default is k=15 (below their median per-artist anchor count of ~20); "
+            "our style-reference gallery is far smaller, so the default here is lower and is still "
+            "clamped to min(k, gallery_size - 1) at run time (the effective k is logged)."
+        ),
+    )
+    parser.add_argument(
+        "--csls-gallery-dir",
+        default=None,
+        help=(
+            "Optional directory of extra style-reference images to fold into the CSLS r_k "
+            "neighbourhood pool (e.g. the full style-reference set, not just the styles present "
+            "in this manifest). Does NOT change s(x,A)=csd_style_sim, which still uses only the "
+            "manifest's own style_path per row -- it only gives r_k a less tiny gallery to estimate "
+            "local density over, closer to the paper's full-corpus reference pool. Effective k is "
+            "still min(--csls-k, gallery_size - 1) and is logged."
+        ),
+    )
+    parser.add_argument("--csls-gallery-glob", default="*.png", help="Glob for --csls-gallery-dir images.")
     return parser.parse_args()
 
 
@@ -77,6 +101,60 @@ def cosine(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     a = F.normalize(a.float(), dim=-1)
     b = F.normalize(b.float(), dim=-1)
     return (a * b).sum(dim=-1)
+
+
+# --- CSD+ CSLS readout ------------------------------------------------------
+#
+# Source: Joerg Frochte, "When Style Similarity Scores Fail: Diagnosing Raw CSD
+# Cosine in Artist-Style Evaluation," arXiv:2605.09030 (2026), Sec. 5 ("CSD+
+# Readouts for Practical Evaluation"). Verbatim (OCR'd from the arXiv PDF):
+#
+#   "With r_k(x) = (1/k) * sum_{y in N_k(x)} <x, y> denoting the mean cosine of
+#   x to its k nearest neighbours, CSLS(x, A) = 2 s(x, A) - r_k(x)
+#   - (1/|A|) * sum_{a in A} r_k(a) is the doubly-locally-centred analogue of s."
+#   [...] "We use k = 15 [3], below the median per-artist anchor count of 20;
+#   counts and AUC are stable across k in {5, 10, 15, 20, 50}."
+#   "[3]" is Conneau, Lample, Ranzato, Denoyer & Jegou, "Word Translation
+#   Without Parallel Data" (ICLR 2018) -- the canonical source of CSLS, which
+#   Frochte imports unmodified from cross-lingual lexicon induction.
+#   The reference pool for r_k is "the candidate evaluation corpus itself"
+#   (their full 91-artist anchor pool), not a bipartite source/target split.
+#
+# Our corpus has exactly one style-reference image per style_id (the anchor
+# pool A is a singleton {ref}), so s(x, A) = cos(x, ref) is exactly the
+# existing raw csd_style_sim column, and the formula collapses to the
+# pairwise form CSLS(x, ref) = 2*cos(x, ref) - r_k(x) - r_k(ref).
+# Per task instruction, our analogue of "the candidate evaluation corpus" is
+# the gallery of all distinct style-reference images present in the manifest
+# being evaluated (there is no larger corpus of per-style anchor images here).
+
+
+def topk_mean_similarity(sim: torch.Tensor, k: int, exclude_mask: torch.Tensor | None = None) -> torch.Tensor:
+    """r_k(x) for every row of a [Q, N] cosine-similarity matrix.
+
+    r_k(x) = (1/k) * sum over the k largest entries of row x (Frochte 2026 Eq.
+    in Sec. 5; orig. Conneau et al. 2018). ``exclude_mask`` (shape [Q, N], True
+    = exclude) implements the leave-one-out self-exclusion the paper uses when
+    a query is itself a gallery member ("cos(x,x) = 1 does not artificially
+    inflate ..."): pass an identity mask when scoring the gallery against
+    itself, and ``None`` when scoring queries that are not gallery members.
+    """
+    if k < 1:
+        raise ValueError(f"k must be >= 1, got {k}")
+    if exclude_mask is not None:
+        sim = sim.masked_fill(exclude_mask, float("-inf"))
+    topk = sim.topk(k, dim=1).values
+    return topk.mean(dim=1)
+
+
+def csls_score(s_x_a: float, r_k_x: float, mean_r_k_a: float) -> float:
+    """CSLS(x, A) = 2*s(x, A) - r_k(x) - mean_{a in A} r_k(a).
+
+    ``s_x_a`` is the (possibly pool-aggregated) raw cosine s(x, A); for our
+    singleton pools this is just cos(x, ref) = csd_style_sim. ``mean_r_k_a``
+    is the mean of r_k(a) over the anchor pool A (a single value when |A|=1).
+    """
+    return 2.0 * s_x_a - r_k_x - mean_r_k_a
 
 
 def rows_by_batch(rows: list[dict[str, object]], batch_size: int) -> list[list[dict[str, object]]]:
@@ -163,6 +241,7 @@ def write_rows(rows: list[dict[str, object]], out_csv: Path) -> None:
         "prompt_id",
         "seed",
         "csd_style_sim",
+        "csd_plus_csls",
         "clip_t",
         "dino_style_sim",
         "vgg_gram_dist",
@@ -237,12 +316,38 @@ class MetricRunner:
             return F.normalize(style.float(), dim=-1).cpu()
 
         style_cache = {path: embed_style([path])[0] for path in sorted({str(r["style_path"]) for r in self.rows})}
+        output_cache: dict[str, torch.Tensor] = {}
         for batch in rows_by_batch(self.rows, batch_size=8):
             output_embeds = embed_style([str(row["output_path"]) for row in batch])
             for idx, row in enumerate(batch):
                 row["csd_style_sim"] = float(
                     cosine(output_embeds[idx : idx + 1], style_cache[str(row["style_path"])].unsqueeze(0)).item()
                 )
+                output_cache[str(row["output_path"])] = output_embeds[idx]
+
+        # Optional CSLS gallery extension: fold in extra style-reference images
+        # (e.g. the full style set, not just the styles present in this
+        # manifest) so r_k has a less tiny neighbourhood to estimate local
+        # density over -- closer to Frochte's "candidate evaluation corpus"
+        # pool. Still the same loaded CSD model / embed_style() call, just
+        # applied to more images; s(x,A)=csd_style_sim above is untouched.
+        gallery_cache: dict[str, torch.Tensor] = dict(style_cache)
+        n_extra = 0
+        if self.args.csls_gallery_dir:
+            gallery_root = Path(self.args.csls_gallery_dir)
+            extra_paths = sorted(
+                str(p) for p in gallery_root.glob(self.args.csls_gallery_glob)
+                if p.is_file() and str(p) not in gallery_cache
+            )
+            if extra_paths:
+                extra_embeds = embed_style(extra_paths)
+                for path, embed in zip(extra_paths, extra_embeds):
+                    gallery_cache[path] = embed
+                n_extra = len(extra_paths)
+            print(
+                f"[csd+] CSLS gallery extended from {self.args.csls_gallery_dir}: "
+                f"{len(style_cache)} manifest ref(s) + {n_extra} extra -> {len(gallery_cache)} total"
+            )
 
         self.model_info["csd"] = {
             "model_name": "CSD_CLIP(vit_large, default)",
@@ -254,6 +359,101 @@ class MetricRunner:
         del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        # CSD+ CSLS readout, reusing the CSD embeddings computed above (no new
+        # model; the only "extra" forward passes are the optional gallery-dir
+        # images above, still through the same CSD backbone already loaded for
+        # csd_style_sim).
+        self._compute_csd_plus_csls(gallery_cache=gallery_cache, output_cache=output_cache, n_gallery_extra=n_extra)
+
+    def _compute_csd_plus_csls(
+        self,
+        *,
+        gallery_cache: dict[str, torch.Tensor],
+        output_cache: dict[str, torch.Tensor],
+        n_gallery_extra: int = 0,
+    ) -> None:
+        """CSD+ CSLS readout (Frochte 2026, arXiv:2605.09030, Sec. 5).
+
+        See the module-level comment above ``topk_mean_similarity`` for the
+        exact formula and source. Reference-pool substitution: Frochte's pool
+        is "the candidate evaluation corpus itself" (their full 91-artist
+        anchor set); our analogue is the gallery of style-reference images
+        (by default just the manifest's own distinct style_paths; optionally
+        extended via --csls-gallery-dir to a broader style-reference set),
+        since our corpus has only one anchor image per style_id rather than a
+        multi-image per-artist pool.
+        """
+        gallery_paths = sorted(gallery_cache.keys())
+        n_gallery = len(gallery_paths)
+        k_requested = int(self.args.csls_k)
+        k_effective = min(k_requested, n_gallery - 1) if n_gallery > 1 else 0
+
+        self.metric_info["csd_plus_csls"] = {
+            "direction": "higher_better",
+            "definition": (
+                "CSLS(x,ref) = 2*cos(x,ref) - r_k(x) - r_k(ref); r_k(z) = mean cosine of z to its "
+                "k nearest neighbours in the style-reference gallery (leave-one-out for gallery members)."
+            ),
+            "source": (
+                "Frochte (2026), 'When Style Similarity Scores Fail', arXiv:2605.09030, Sec. 5 "
+                "(CSD+ / CSLS readout); CSLS originates in Conneau et al. 2018, "
+                "'Word Translation Without Parallel Data' (ICLR), their ref [3]."
+            ),
+            "gallery": (
+                "distinct style_path images in this manifest, optionally extended via "
+                "--csls-gallery-dir (task-directed substitution for the paper's full-corpus "
+                "anchor pool, since our corpus has no multi-image per-style anchor set)"
+            ),
+            "gallery_size": n_gallery,
+            "gallery_size_from_manifest": n_gallery - n_gallery_extra,
+            "gallery_size_extra": n_gallery_extra,
+            "k_requested": k_requested,
+            "k_effective": k_effective,
+        }
+
+        if k_effective < 1:
+            for row in self.rows:
+                row["csd_plus_csls"] = None
+            print(
+                f"[csd+] CSLS skipped: gallery has only {n_gallery} distinct style reference(s), "
+                "no neighbours available for r_k. csd_plus_csls left blank for all rows."
+            )
+            return
+
+        gallery_embeds = torch.stack([gallery_cache[p] for p in gallery_paths])  # [N, D], L2-normalized
+        gallery_sim = gallery_embeds @ gallery_embeds.t()  # [N, N] cosine (embeddings pre-normalized)
+        self_mask = torch.eye(n_gallery, dtype=torch.bool)
+        r_k_ref = topk_mean_similarity(gallery_sim, k_effective, exclude_mask=self_mask)  # [N]
+        r_k_ref_by_path = {p: float(r_k_ref[i].item()) for i, p in enumerate(gallery_paths)}
+
+        for row in self.rows:
+            output_embed = output_cache[str(row["output_path"])].unsqueeze(0)  # [1, D]
+            sim_to_gallery = output_embed @ gallery_embeds.t()  # [1, N]
+            r_k_x = float(topk_mean_similarity(sim_to_gallery, k_effective, exclude_mask=None)[0].item())
+            r_k_ref_val = r_k_ref_by_path[str(row["style_path"])]
+            row["csd_plus_csls"] = csls_score(float(row["csd_style_sim"]), r_k_x, r_k_ref_val)
+
+        print(f"[csd+] CSLS computed: gallery_size={n_gallery}, k_requested={k_requested}, k_effective={k_effective}")
+
+        # --- Discrimination gap: DEFERRED, not fabricated ---------------------
+        # Frochte's discrimination gap g_k = w_k - c_k requires, per artist k, a
+        # within-class median cosine w_k computed over multiple own-artist anchor
+        # artworks (off-diagonal pairs) and a cross-class statistic c_k = max over
+        # every OTHER artist j of the median cosine between k's anchors and j's
+        # anchors (typically ~90 other classes in their 91-artist corpus). Our
+        # corpus provides exactly ONE reference image per style_id, so there is no
+        # within-class pool to take an off-diagonal median over -- w_k is
+        # undefined from reference images alone. Substituting our handful of
+        # *generated* images sharing a style_id as a proxy anchor pool would
+        # answer a different question (does our generator cluster by intended
+        # style?) rather than Frochte's question (is CSD cosine intrinsically an
+        # absolute same/different score on real artist artworks?), and with only
+        # 3-8 other styles as the candidate "other artists" set, c_k = max over
+        # 2-7 comparisons is far too noisy to support the paper's threshold
+        # language (their gap>=0.15 "cleanly separated" bucket was estimated over
+        # 90 other classes). We do not compute csd_discrimination_gap here; see
+        # the run report for the honesty-gate reasoning.
 
     def _compute_clip_t(self) -> None:
         import open_clip
@@ -444,10 +644,22 @@ def summary_payload(
         "metric_info": runner.metric_info,
         "method_summary": {
             "csd_style_sim": aggregate(rows, "csd_style_sim"),
+            "csd_plus_csls": aggregate(rows, "csd_plus_csls"),
             "clip_t": aggregate(rows, "clip_t"),
             "dino_style_sim": aggregate(rows, "dino_style_sim"),
             "vgg_gram_dist": aggregate(rows, "vgg_gram_dist"),
             "dino_layout_leak": aggregate(rows, "dino_layout_leak"),
+        },
+        "csd_discrimination_gap": {
+            "status": "deferred",
+            "reason": (
+                "Frochte (2026) g_k = w_k - c_k needs a multi-image within-class anchor pool per "
+                "style (for the off-diagonal within-class median w_k) and ~90 other classes for the "
+                "cross-class max c_k. Our corpus has exactly one reference image per style_id (no "
+                "within-class pool) and only a handful of other styles per manifest, so the diagnostic "
+                "is not computable in its published form here without fabricating a proxy. See code "
+                "comment above MetricRunner._compute_csd_plus_csls for the full reasoning."
+            ),
         },
         "rows": rows,
     }

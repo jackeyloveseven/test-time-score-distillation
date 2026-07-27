@@ -1,0 +1,253 @@
+[
+  {
+    "pair_id": "ST_NIJI_PORTRAIT",
+    "content_image": "https://image-cdn.flowgpt.com/generated_images/image-fe1fae8e-f7b1-44de-895b-0461954dd779.png",
+    "style_image": "https://image-cdn.flowgpt.com/generated_images/image-78a9f2e8-ddf8-43fe-bfce-70c8e9d44041.png",
+    "output_image": "https://image-cdn.flowgpt.com/generated_images/image-409bc5d9-0a09-41f7-8a9e-cb9c2b89f0da.jpg",
+    "dim_results": {
+      "art_style": {
+        "art_style_l1": "Anime/Manga",
+        "art_style_l2": "Shoujo",
+        "confidence": 1.0,
+        "reasoning": "The image features clean, consistent linework with varying weights to define form, combined with flat color fills and soft digital gradients. Texture is absent, replaced by smooth surfaces and localized fine-line hatching for subtle shadowing, which are hallmarks of modern illustrative comic styles."
+      },
+      "technique": {
+        "error": "Illegal trailing comma before end of object: line 4 column 326 (char 384)",
+        "raw": "```json\n{\n  \"technique\": \"Digital Painting\",\n  \"confidence\": 0.98,\n  \"reasoning\": \"The image exhibits a perfectly uniform white background and crisp, consistent line work without any visible paper grain or ink bleed. The smooth color gradients in the hair and the precise, layered highlights in the eyes are characteristic of digital brushes and layer blend modes rather than physical media.\",\n}\n```"
+      },
+      "color_tone": {
+        "color_tone": "Pastel",
+        "confidence": 0.95,
+        "reasoning": "The image is dominated by soft, high-brightness hues such as light pink, lilac, and pale blue. The overall saturation is low, creating a gentle, airy, and dreamlike aesthetic characteristic of a pastel palette."
+      },
+      "lighting": {
+        "lighting": "Soft Light",
+        "confidence": 0.95,
+        "reasoning": "The image features highly diffused illumination with gentle gradients and an absence of harsh shadow edges on the subject's face and clothing. The light source appears wrap-around and non-directional, creating a bright, ethereal quality typical of soft-box or overcast lighting."
+      },
+      "content_type": {
+        "content_type": "Portrait/Face",
+        "confidence": 1.0,
+        "reasoning": "The image is a clear bust-length portrait focusing on a woman's face and upper torso. The shallow depth of field blurs the natural background, emphasizing the human subject as the primary focal point of the composition."
+      },
+      "realism": {
+        "realism": "Stylized",
+        "confidence": 1.0,
+        "reasoning": "The image exhibits classic anime stylization, characterized by exaggerated facial proportions like oversized eyes and a minimalist nose. The presence of distinct line art and illustrative, soft cel-shading confirms a departure from optical physics in favor of a specific artistic aesthetic."
+      },
+      "transfer_complexity": {
+        "transfer_complexity": "Cross-domain",
+        "realism_gap": "Photorealistic → Stylized",
+        "domain_pair": "Photograph → Anime Illustration",
+        "confidence": 0.95,
+        "reasoning": "The domain gap is high, transitioning from a detailed photograph to a 2D anime illustration. This requires high structural deformation to convert realistic facial features and clothing textures into line art and stylized proportions."
+      },
+      "style_fidelity": {
+        "fidelity_score": 3,
+        "style_capture": "full",
+        "content_preservation": "partial",
+        "artifacts": "none",
+        "weakest_dim": "lighting",
+        "confidence": 0.9,
+        "reasoning": "The output successfully adopts the anime aesthetic, line work, and color palette of the style image, particularly the pink hair and soft features. However, content preservation is only partial as the specific facial identity of the woman and her denim jacket are completely replaced by generic anime character traits. Additionally, the lighting mood shifts from the style image's bright, high-key white background to a darker, bokeh-filled environment."
+      }
+    },
+    "style_tags": {
+      "art_style_l1": "Anime/Manga",
+      "art_style_l2": "Shoujo",
+      "technique": null,
+      "color_tone": "Pastel",
+      "lighting": "Soft Light",
+      "realism": "Stylized"
+    },
+    "content_tags": {
+      "content_type": "Portrait/Face"
+    },
+    "transfer_tags": {
+      "transfer_complexity": "Cross-domain",
+      "realism_gap": "Photorealistic → Stylized",
+      "domain_pair": "Photograph → Anime Illustration"
+    },
+    "fidelity": {
+      "score": 3,
+      "style_capture": "full",
+      "content_preservation": "partial",
+      "artifacts": "none",
+      "weakest_dim": "lighting"
+    },
+    "desc": "写实人像 → Niji Anime",
+    "urls": {
+      "content": "https://image-cdn.flowgpt.com/generated_images/image-fe1fae8e-f7b1-44de-895b-0461954dd779.png",
+      "style": "https://image-cdn.flowgpt.com/generated_images/image-78a9f2e8-ddf8-43fe-bfce-70c8e9d44041.png",
+      "output": "https://image-cdn.flowgpt.com/generated_images/image-409bc5d9-0a09-41f7-8a9e-cb9c2b89f0da.jpg"
+    }
+  },
+  {
+    "pair_id": "ST_WATERCOLOR_LANDSCAPE",
+    "content_image": "https://image-cdn.flowgpt.com/generated_images/image-0bc6ac78-7ac8-486c-aa39-80cc4b1a4aa1.jpg",
+    "style_image": "https://image-cdn.flowgpt.com/generated_images/image-405d80c6-79c4-4270-8833-8d2715b9b509.jpg",
+    "output_image": "https://image-cdn.flowgpt.com/generated_images/image-fd5265e2-4c6c-4a05-82da-31a7fb8e632d.jpg",
+    "dim_results": {
+      "art_style": {
+        "art_style_l1": "Impressionist",
+        "art_style_l2": "Watercolor",
+        "confidence": 0.9,
+        "reasoning": "The image displays characteristic watercolor textures, including visible paper grain and wet-on-wet blending that creates soft, 'lost-and-found' edges. The forms are suggestive rather than precise, using transparent washes and pigment blooms to capture atmospheric light and color mass instead of using linework."
+      },
+      "technique": {
+        "technique": "Watercolor",
+        "confidence": 0.98,
+        "reasoning": "The image features a prominent cold-press paper substrate texture visible in both negative space and light washes. There are clear physical markers such as 'blooms' or back-runs where pigment has pooled at the edges of drying washes, as well as organic wet-on-wet blending and pigment sedimentation typical of traditional watercolor."
+      },
+      "color_tone": {
+        "color_tone": "Warm Tone",
+        "confidence": 0.95,
+        "reasoning": "The palette is heavily dominated by a warm spectrum of oranges, yellows, and pinks, evoking a sunset or golden-hour atmosphere. While there are purple accents, they predominantly lean towards warm magentas that harmonize with the primary red-orange-yellow hue family."
+      },
+      "lighting": {
+        "lighting": "Natural/Ambient",
+        "confidence": 0.9,
+        "reasoning": "The image depicts a sunset or sunrise landscape where the primary light source is the sun, providing soft, diffused outdoor illumination. The watercolor medium emphasizes gentle color gradients and the absence of hard shadows, perfectly mimicking the look of natural ambient light during golden hour."
+      },
+      "content_type": {
+        "content_type": "Landscape",
+        "confidence": 1.0,
+        "reasoning": "The image captures an expansive natural environment featuring a mountain range, a lush green valley with a winding river, and a wide sky. There are no human subjects or man-made structures, fitting the definition of a landscape perfectly."
+      },
+      "realism": {
+        "realism": "Stylized",
+        "confidence": 1.0,
+        "reasoning": "The image uses wet-on-wet watercolor techniques to suggest a mountain landscape, prioritizing expressive pigment blooms and drips over optical accuracy. While the subject is recognizable, the anatomy of the terrain is simplified into abstract shapes and non-naturalistic color washes that lack three-dimensional depth or photographic lighting."
+      },
+      "transfer_complexity": {
+        "transfer_complexity": "Cross-domain",
+        "realism_gap": "Photorealistic → Abstract Stylization",
+        "domain_pair": "Photograph → Watercolor Painting",
+        "confidence": 0.95,
+        "reasoning": "The transition from a high-detail landscape photograph to a loose, wet-on-wet watercolor involves a significant domain gap. Achieving this result requires high structural deformation to abstract solid geological forms into fluid pigment washes and paper-textured gradients."
+      },
+      "style_fidelity": {
+        "fidelity_score": 4,
+        "style_capture": "full",
+        "content_preservation": "partial",
+        "artifacts": "none",
+        "weakest_dim": "structure",
+        "confidence": 0.9,
+        "reasoning": "The output exceptionally captures the watercolor medium, including the paper texture, pigment bleeding, and drip effects seen in the style image. While the primary mountain silhouette is preserved, the finer details of the landscape, such as the river and the specific textures of the foreground meadow, are largely lost to the abstract nature of the brushwork. However, the mood and color palette are a near-perfect match to the style reference."
+      }
+    },
+    "style_tags": {
+      "art_style_l1": "Impressionist",
+      "art_style_l2": "Watercolor",
+      "technique": "Watercolor",
+      "color_tone": "Warm Tone",
+      "lighting": "Natural/Ambient",
+      "realism": "Stylized"
+    },
+    "content_tags": {
+      "content_type": "Landscape"
+    },
+    "transfer_tags": {
+      "transfer_complexity": "Cross-domain",
+      "realism_gap": "Photorealistic → Abstract Stylization",
+      "domain_pair": "Photograph → Watercolor Painting"
+    },
+    "fidelity": {
+      "score": 4,
+      "style_capture": "full",
+      "content_preservation": "partial",
+      "artifacts": "none",
+      "weakest_dim": "structure"
+    },
+    "desc": "写实风景 → 水彩插画",
+    "urls": {
+      "content": "https://image-cdn.flowgpt.com/generated_images/image-0bc6ac78-7ac8-486c-aa39-80cc4b1a4aa1.jpg",
+      "style": "https://image-cdn.flowgpt.com/generated_images/image-405d80c6-79c4-4270-8833-8d2715b9b509.jpg",
+      "output": "https://image-cdn.flowgpt.com/generated_images/image-fd5265e2-4c6c-4a05-82da-31a7fb8e632d.jpg"
+    }
+  },
+  {
+    "pair_id": "ST_INKWASH_PORTRAIT",
+    "content_image": "https://image-cdn.flowgpt.com/generated_images/image-a9b14487-a0cb-42f9-ab7c-c6ea772e208e.jpg",
+    "style_image": "https://image-cdn.flowgpt.com/generated_images/image-f07d6426-c7bc-404d-84bc-3f16b6fc31a9.jpg",
+    "output_image": "https://image-cdn.flowgpt.com/generated_images/image-31b6487e-1112-4a77-8a7f-204dbb39d6ec.jpg",
+    "dim_results": {
+      "art_style": {
+        "art_style_l1": "East Asian",
+        "art_style_l2": "Sumi-e",
+        "confidence": 1.0,
+        "reasoning": "The image features distinct calligraphic brushwork with varying line weights and visible 'flying white' dry-brush textures. It utilizes monochromatic ink wash gradients to create form and relies heavily on negative space and flat spatial planes rather than linear perspective."
+      },
+      "technique": {
+        "technique": "Ink",
+        "confidence": 0.95,
+        "reasoning": "The image exhibits classic sumi-e characteristics, including visible 'flying white' (dry brush) textures on the tree trunk and organic pigment pooling at the edges of the mountain wash. The substrate shows a subtle, non-uniform fiber grain consistent with rice paper, and the red seal displays the characteristic uneven ink distribution of a physical stamp."
+      },
+      "color_tone": {
+        "color_tone": "Monochrome",
+        "confidence": 1.0,
+        "reasoning": "The image is rendered entirely in black and white, characteristic of traditional ink wash painting. There is no chrominance present, only tonal variations of gray and stark black against a white background."
+      },
+      "lighting": {
+        "lighting": "Dramatic Shadow",
+        "confidence": 0.9,
+        "reasoning": "The image utilizes a high-contrast ink-wash style that mimics strong chiaroscuro, where bold black strokes represent deep, cast shadows against the white paper. The light source appears to come from the upper left, defining the subject's facial structure and clothing folds with intense, hard-edged darkness."
+      },
+      "content_type": {
+        "content_type": "Portrait/Face",
+        "confidence": 1.0,
+        "reasoning": "The image is a classic close-up portrait focusing specifically on the details and features of the human face. The person's head and neck dominate the majority of the visual frame, with the background elements being secondary and out of focus."
+      },
+      "realism": {
+        "realism": "Stylized",
+        "confidence": 0.95,
+        "reasoning": "While the facial anatomy follows realistic proportions, the image is rendered using traditional ink-wash techniques with high-contrast calligraphic brushstrokes. The lack of optical depth, the presence of bold outlines, and the use of negative space for skin tones categorize this as an illustrative style rather than a photographic or semi-realistic one."
+      },
+      "transfer_complexity": {
+        "transfer_complexity": "cross-domain",
+        "realism_gap": "Photorealistic → Stylized",
+        "domain_pair": "Photograph → Chinese Ink Wash Painting",
+        "confidence": 0.9,
+        "reasoning": "The domain gap is high, transitioning from a high-detail monochromatic photograph to a minimalist ink wash medium. Achieving the style requires high structural deformation, as the subject is reimagined with traditional clothing and expressive brushwork rather than simple texture mapping."
+      },
+      "style_fidelity": {
+        "fidelity_score": 2,
+        "style_capture": "full",
+        "content_preservation": "partial",
+        "artifacts": "minor",
+        "weakest_dim": "structure",
+        "confidence": 0.9,
+        "reasoning": "The output successfully captures the Sumi-e ink wash style, including the characteristic brushstrokes and minimalist color palette. However, the content preservation is poor as the identity of the man from the content image has been completely replaced by a different, stereotypical figure associated with the style. While the pose is somewhat similar, the facial features and clothing have been fundamentally altered, making this more of a style-guided generation than a true style transfer."
+      }
+    },
+    "style_tags": {
+      "art_style_l1": "East Asian",
+      "art_style_l2": "Sumi-e",
+      "technique": "Ink",
+      "color_tone": "Monochrome",
+      "lighting": "Dramatic Shadow",
+      "realism": "Stylized"
+    },
+    "content_tags": {
+      "content_type": "Portrait/Face"
+    },
+    "transfer_tags": {
+      "transfer_complexity": "cross-domain",
+      "realism_gap": "Photorealistic → Stylized",
+      "domain_pair": "Photograph → Chinese Ink Wash Painting"
+    },
+    "fidelity": {
+      "score": 2,
+      "style_capture": "full",
+      "content_preservation": "partial",
+      "artifacts": "minor",
+      "weakest_dim": "structure"
+    },
+    "desc": "写实人像 → 中国水墨",
+    "urls": {
+      "content": "https://image-cdn.flowgpt.com/generated_images/image-a9b14487-a0cb-42f9-ab7c-c6ea772e208e.jpg",
+      "style": "https://image-cdn.flowgpt.com/generated_images/image-f07d6426-c7bc-404d-84bc-3f16b6fc31a9.jpg",
+      "output": "https://image-cdn.flowgpt.com/generated_images/image-31b6487e-1112-4a77-8a7f-204dbb39d6ec.jpg"
+    }
+  }
+]

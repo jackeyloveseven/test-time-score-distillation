@@ -1,0 +1,62 @@
+{
+  "pair_id": "ST_NIJI_001",
+  "content_image": "https://image-cdn.flowgpt.com/generated_images/image-fe1fae8e-f7b1-44de-895b-0461954dd779.png",
+  "style_image": "https://image-cdn.flowgpt.com/generated_images/image-78a9f2e8-ddf8-43fe-bfce-70c8e9d44041.png",
+  "output_image": "https://image-cdn.flowgpt.com/generated_images/image-409bc5d9-0a09-41f7-8a9e-cb9c2b89f0da.jpg",
+  "dim_results": {
+    "art_style": {
+      "art_style_l1": "Anime/Manga",
+      "art_style_l2": "Shojo Manga",
+      "confidence": 0.95,
+      "reasoning": "The image displays characteristic clean, uniform linework and cel shading, alongside fine cross-hatching for subtle shadows. The color application relies on flat fills and soft digital gradients, with flattened spatial perspective and decorative graphic flourishes typical of contemporary manga illustration."
+    },
+    "technique": {
+      "technique": "Digital Painting",
+      "confidence": 0.98,
+      "reasoning": "The image features perfectly uniform gradients and flawlessly clean negative space with no visible paper or canvas texture. The line art maintains a consistent digital precision, and the highlight effects lack the physical thickness or substrate interaction found in traditional media."
+    },
+    "color_tone": {
+      "color_tone": "Pastel",
+      "confidence": 0.95,
+      "reasoning": "The image features a soft, light-valued palette dominated by pale pinks, lavenders, and gentle blues. Its high brightness and low-to-moderate saturation levels create a classic airy, dreamlike pastel aesthetic."
+    },
+    "lighting": {
+      "lighting": "Soft Light",
+      "confidence": 0.95,
+      "reasoning": "The image features highly diffused illumination that creates extremely gentle gradients and a total absence of hard shadow edges. This soft light quality wraps around the subject's features, resulting in a delicate, airy atmosphere with very low contrast."
+    },
+    "content_type": {
+      "content_type": "Portrait/Face",
+      "confidence": 1.0,
+      "reasoning": "The image is a clear bust-up shot focusing on a woman's face and shoulders. The shallow depth of field keeps the emphasis entirely on her features, relegating the natural background to a secondary role."
+    },
+    "realism": {
+      "realism": "Stylized",
+      "confidence": 1.0,
+      "reasoning": "The image features intentional anatomical distortion common in anime, specifically enlarged eyes and a simplified nose/mouth structure. The rendering uses prominent outlines and illustrative cel-shading rather than physically accurate optical light behavior."
+    },
+    "transfer_complexity": {
+      "transfer_complexity": "Cross-domain",
+      "realism_gap": "Photorealistic → Stylized",
+      "domain_pair": "Photograph → Anime Illustration",
+      "confidence": 0.95,
+      "reasoning": "The transfer involves a high domain gap between a natural photograph and a 2D anime illustration. Achieving this requires high structural deformation, as realistic facial proportions must be completely redesigned into stylized anime features with prominent linework and flat/cel shading."
+    }
+  },
+  "style_tags": {
+    "art_style_l1": "Anime/Manga",
+    "art_style_l2": "Shojo Manga",
+    "technique": "Digital Painting",
+    "color_tone": "Pastel",
+    "lighting": "Soft Light",
+    "realism": "Stylized"
+  },
+  "content_tags": {
+    "content_type": "Portrait/Face"
+  },
+  "transfer_tags": {
+    "transfer_complexity": "Cross-domain",
+    "realism_gap": "Photorealistic → Stylized",
+    "domain_pair": "Photograph → Anime Illustration"
+  }
+}

@@ -1,28 +1,23 @@
 # Environment and Reproducibility
 
-Status date: 2026-07-14. Formal work runs on `ubuntu-107`; the Mac is for
-documentation only.
+Status date: 2026-07-23.
 
 ## Server
 
 ```text
 host: ubuntu-107
-OS: Ubuntu, Linux 6.8.0-71-generic, x86_64
+OS: Ubuntu, Linux 6.8, x86_64
 repo: /home/ubuntu/chengyanli/items/style_residual_distill_20260709
-runtime: /home/ubuntu/chengyanli/flux/bin/python3
-Python: 3.12.12
-PyTorch: 2.8.0+cu128
-CUDA runtime: 12.8
-GPU: NVIDIA H200, 143771 MiB
-driver: 590.48.01
+formal Python: /home/ubuntu/chengyanli/flux/bin/python3
+GPU: NVIDIA H200, shared with foreign jobs
 ```
 
 Models and references:
 
 ```text
-main model:     /mnt/local/klein9b
-native teacher: /mnt/local/klein9b-base
-style images:   /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
+main frozen checkpoint: /mnt/local/klein9b
+native checkpoint path: /mnt/local/klein9b-base
+style references: /home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
 ```
 
 The original source root is read-only:
@@ -31,67 +26,86 @@ The original source root is read-only:
 /home/ubuntu/chengyanli/items/save/attention_20260426_090948
 ```
 
-## Verified Startup
+## Runtime Rules
+
+- Use `/home/ubuntu/chengyanli/flux/bin/python3` for matched generation and
+  evaluation unless a script documents another fixed environment.
+- Do not mix Python environments within one comparison.
+- Check `nvidia-smi` before every GPU launch.
+- Never terminate or renice foreign GPU processes.
+- Long jobs must be resumable, skip-existing, and manifest-backed.
+
+The remaining validation queue is currently not running. The most recent log
+was blocked at the 24-GiB headroom gate. GPU occupancy changes frequently, so
+the log is evidence of the last attempt, not a permanent hardware state.
+
+The root filesystem is currently full, with roughly 18 MiB free after the
+2026-07-23 paper build. Disk cleanup is required before further generation or
+evaluation. Remove only confirmed disposable caches or owned temporary files;
+do not remove results, checkpoints, or foreign data by assumption.
+
+## Basic Verification
 
 ```bash
 cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709
 /home/ubuntu/chengyanli/flux/bin/python3 -m py_compile src/*.py scripts/*.py
-/home/ubuntu/chengyanli/flux/bin/python3 -m unittest -q \
-  scripts.test_score_residual_student \
-  scripts.test_tpami_with_style_teacher
+python AAAI/figures/validate_packages.py
 ```
 
-Last verified: `53 tests, OK` on 2026-07-14.
+Run targeted tests for changed modules rather than relying on the historical
+2026-07-14 `53 tests, OK` record as a current full-suite result.
 
-## Alternative Server Environments
+## Paper Build Environment
 
-These passed earlier import-level checks only:
+The local TeX installation builds the official AAAI 2027 style:
 
-```text
-/home/ubuntu/miniconda3/envs/yzh-dmd/bin/python
-/home/ubuntu/miniconda3/envs/diffsynth/bin/python
+```bash
+cd AAAI
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+bibtex main
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+pdflatex -interaction=nonstopmode -halt-on-error main.tex
+pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
+pdflatex -interaction=nonstopmode -halt-on-error supplement.tex
 ```
 
-Do not mix runtimes inside a matched comparison. The formal default is
-`flux/bin/python3`.
-
-## Mac Documentation Environment
-
-```text
-macOS: 26.5.1
-architecture: arm64
-Git: 2.50.1
-local docs path:
-  /Users/jackeylove/Documents/New project/style_residual_distill_20260709
-```
-
-The Mac currently has no `pdflatex` or `bibtex` and has no CUDA target. Do not
-install project runtimes or copy the result tree merely for handoff. Read and
-edit Markdown/LaTeX there; run tests, experiments, evaluation, and compilation
-on `ubuntu-107`.
+Expected outputs as of 2026-07-23: main 8 pages, supplement 8 pages, US Letter.
 
 ## Evaluators
 
-The evaluator resolves local server caches for CSD, OpenCLIP, DINOv2, and
-VGG19. Every summary JSON records exact resolved paths, SHA-256 values, metric
-direction, and preprocessing. A comparison is invalid if a cache or preprocess
-changes between rows.
+The evaluation surface includes:
+
+- CSD for reference-style fidelity;
+- CLIP-T for literal prompt alignment;
+- DINO patch self-similarity correlation for layout transfer;
+- VGG/ArtFID diagnostics where explicitly reported;
+- primary and secondary remote Agents;
+- a local wrong-reference style-control judge.
+
+Every summary must record evaluator identity, preprocessing, metric direction,
+input ordering, failures, and coverage. Persistent malformed Agent responses
+are recorded and never imputed.
+
+## Figure Generation
+
+AI schematics use package-local Kaon GPT Image 2 scripts. Credentials are read
+from environment variables or protected local configuration and must not be
+written into source, prompts, metadata, or user-facing reports. Generation
+responses may contain `b64_json`, HTTPS URLs, or `data:` URLs; active scripts
+must support all three.
 
 ## Reproducibility Record
 
-Every run must record:
+Every experiment must retain:
 
 ```text
-code commit and Python environment
-model roots and model-loading/offload settings
-reference path, prompt text, IDs, seed, and resolution
-outer steps, exact timestep, scheduler sigma, and start time
-inner iteration schedule and latent optimizer
-all goal, carrier, content, distance, and DMD weights
-fake-score optimizer/replay/state path when using CA+DMD
-metric caches, hashes, and preprocessing
+code state and Python environment
+checkpoint paths and loading/offload settings
+reference, prompt, task, style ID, and seed
+resolution, reverse schedule, and timestep configuration
+inner iteration schedule, optimizer, and step size
+normalization and all active objective weights
+runtime, peak memory, forward calls, and backward calls
+evaluator versions, prompts, ordering, failures, and hashes
 unique output prefix and manifest path
 ```
-
-The main formal setting is documented in `formal25_teacher_comparison.md` and
-`../AAAI/main.tex`.

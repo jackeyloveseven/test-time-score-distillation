@@ -85,6 +85,54 @@ def prepare_edit_condition(
     )
 
 
+def build_layout_free_edit_condition(
+    edit_condition: EditCondition,
+    *,
+    mode: str,
+    seed: int,
+) -> EditCondition:
+    """Produce a "layout-free" variant of ``edit_condition`` by manipulating ONLY the positional
+    ``edit_image_ids`` -- never the content ``edit_latents``, never K/V, never any attention code.
+
+    ``edit_image_ids`` has shape ``(B, N, 4)`` where each of the ``N`` reference tokens carries a
+    ``(t, h, w, l)`` positional coordinate consumed only by the frozen DiT's RoPE (``img_ids``).
+    Because the reference tokens normally sit on a coherent grid matching the generated grid, the
+    generated token at position (i, j) aligns to the reference token at (i, j) and the reference's
+    spatial LAYOUT/composition is copied. Breaking that positional correspondence keeps the
+    reference's APPEARANCE/medium contribution (content-similarity attention) while removing layout.
+
+    Two modes:
+    - ``scramble``: deterministically permute the rows (token dim=1) of ``edit_image_ids`` with a
+      LOCAL seeded ``torch.Generator`` (never the global RNG). The content ``edit_latents`` stay put,
+      so each reference token keeps its content but now claims a *random* position id.
+    - ``strip``: broadcast the first row of ``edit_image_ids`` across all ``N`` tokens so every
+      reference token is positionally identical (a pure position-invariant bag-of-appearance).
+
+    The returned ``EditCondition`` shares the exact same ``edit_latents`` tensor; only the frozen,
+    detached ``edit_image_ids`` differ.
+    """
+
+    if mode not in {"scramble", "strip"}:
+        raise ValueError(f"Unsupported layout-free mode {mode!r}; expected 'scramble' or 'strip'")
+    ids = edit_condition.edit_image_ids
+    if ids.ndim != 3:
+        raise RuntimeError(
+            f"edit_image_ids expected shape (B, N, C); got {tuple(ids.shape)} for layout-free {mode}"
+        )
+    num_tokens = int(ids.shape[1])
+    if mode == "scramble":
+        generator = torch.Generator(device="cpu").manual_seed(int(seed))
+        perm = torch.randperm(num_tokens, generator=generator).to(device=ids.device)
+        new_ids = ids.index_select(1, perm)
+    else:  # strip
+        new_ids = ids[:, 0:1, :].expand(-1, num_tokens, -1).contiguous()
+    return EditCondition(
+        edit_latents=edit_condition.edit_latents,
+        edit_image_ids=freeze_condition_tensor(new_ids.detach(), device=ids.device),
+        source=f"{edit_condition.source}::layout_free_{mode}",
+    )
+
+
 def _default_velocity_fn(
     *,
     dit: Any,
@@ -218,6 +266,7 @@ __all__ = [
     "EditCondition",
     "NativeEditTeacherTriplet",
     "assert_static_condition_tensor",
+    "build_layout_free_edit_condition",
     "compute_native_velocity",
     "evaluate_native_edit_triplet",
     "freeze_condition_tensor",

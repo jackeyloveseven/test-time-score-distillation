@@ -1,28 +1,21 @@
-# Python/cache
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-
-# Runtime logs and generated experiment artifacts
-*.log
-experiments/**
-results/**
-results/**/*.pt
-results/**/*.pth
-results/**/*.ckpt
-results/**/*.safetensors
-results/**/*.bin
-results/**/*.png
-results/**/*.jpg
-results/**/*.jpeg
-results/**/*.webp
-results/**/*.gif
-
-# Local editor and machine files
-.DS_Store
-.vscode/
-.idea/
-
-# Subagent audit output
+# ---- large data / results (excluded from backup repo) ----
+results/
 agent_runs/
+trial/
+experiments/data/
+__pycache__/
+*.pyc
+*.tar
+*.tar.zst
+*.zst
+*.ckpt
+*.safetensors
+# ---- heavy paper figure asset trees (paper PDFs at AAAI/*.pdf are kept) ----
+AAAI/figures/
+AAAI/build/
+AAAI/figs/
+# ---- credentials: NEVER commit (contain live API keys) ----
+scripts/vlm_judge_calibration.py
+scripts/vlm_benchmark.py
+stylebench/benchmark.py
+/stylebench/benchmark.py

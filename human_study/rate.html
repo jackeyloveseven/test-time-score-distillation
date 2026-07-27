@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Style Transfer — Blind Rating</title>
+<style>
+ body{font-family:system-ui,Arial,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1a1a1a}
+ h1{font-size:20px} .sub{color:#666;font-size:14px;margin-bottom:18px}
+ .imgs{display:flex;gap:18px;justify-content:center;margin:14px 0}
+ .imgs figure{margin:0;text-align:center} .imgs img{width:340px;height:340px;object-fit:cover;border:1px solid #ccc;border-radius:6px}
+ .imgs figcaption{font-size:13px;color:#555;margin-top:6px}
+ .q{margin:14px 0} .q label{font-weight:600;display:block;margin-bottom:6px}
+ .scale{display:flex;gap:6px;flex-wrap:wrap}
+ .scale button{padding:8px 14px;border:1px solid #bbb;background:#fafafa;border-radius:6px;cursor:pointer;font-size:14px}
+ .scale button.sel{background:#2563eb;color:#fff;border-color:#2563eb}
+ .bar{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+ .prog{color:#666;font-size:14px} button.nav{padding:10px 20px;border-radius:6px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-size:15px;cursor:pointer}
+ button.nav:disabled{opacity:.4;cursor:default} #done{display:none} pre{background:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;font-size:12px}
+</style></head><body>
+<h1>Style-Transfer Blind Rating</h1>
+<div class="sub">For each pair, the LEFT image is the <b>style reference</b>; the RIGHT is a <b>generated</b> image asked to depict a specific subject in that style. Rate the RIGHT image on three axes. Order is randomized; no scores are shown. ~2–3 min. At the end, click <b>Export</b> and send the downloaded JSON to the study owner.</div>
+<div id="card">
+  <div class="imgs">
+    <figure><img id="ref" alt="reference"><figcaption>Style reference</figcaption></figure>
+    <figure><img id="gen" alt="generated"><figcaption>Generated (rate this)</figcaption></figure>
+  </div>
+  <div class="q"><label>1. Style match — how well does the generated image adopt the reference's artistic style? <span style="color:#888">(1 = not at all, 5 = excellent)</span></label><div class="scale" data-q="style"></div></div>
+  <div class="q"><label>2. Content clarity — is the intended subject clearly and correctly depicted? <span style="color:#888">(1 = unrecognizable/mushy, 5 = perfectly clear)</span></label><div class="scale" data-q="content"></div></div>
+  <div class="q"><label>3. Overall quality — would you accept this as a good stylization? <span style="color:#888">(1 = poor, 5 = great)</span></label><div class="scale" data-q="overall"></div></div>
+  <div class="bar"><span class="prog" id="prog"></span><button class="nav" id="next" disabled>Next →</button></div>
+</div>
+<div id="done">
+  <h2>Done — thank you.</h2>
+  <p>Click Export to download your ratings, then send the file to the study owner.</p>
+  <button class="nav" id="export">Export ratings (JSON)</button>
+  <pre id="summary"></pre>
+</div>
+<script>
+// pairs embedded (paths relative to this file: ../results/...). CSD intentionally NOT shown.
+const PAIRS = [{"style": "27", "ref": "results/formal25_score_match_fullprompt_score_match_style27_kp0_seed64_reference.png", "gen": "results/formal25_score_match_fullprompt_score_match_style27_kp0_seed64.png"}, {"style": "00", "ref": "results/matrix_score_match_style00_kp1_seed64_reference.png", "gen": "results/matrix_score_match_style00_kp1_seed64.png"}, {"style": "13", "ref": "results/matrix_score_match_style13_kp3_seed64_reference.png", "gen": "results/matrix_score_match_style13_kp3_seed64.png"}, {"style": "25", "ref": "results/breadthext_score_match_style25_kp3_seed64_reference.png", "gen": "results/breadthext_score_match_style25_kp3_seed64.png"}, {"style": "10", "ref": "results/bench40_score_match_style10_kp1_seed64_reference.png", "gen": "results/bench40_score_match_style10_kp1_seed64.png"}, {"style": "18", "ref": "results/breadthext_score_match_style18_kp2_seed64_reference.png", "gen": "results/breadthext_score_match_style18_kp2_seed64.png"}, {"style": "02", "ref": "results/breadth_score_match_style02_kp0_seed64_reference.png", "gen": "results/breadth_score_match_style02_kp0_seed64.png"}, {"style": "21", "ref": "results/bench40_score_match_style21_kp3_seed64_reference.png", "gen": "results/bench40_score_match_style21_kp3_seed64.png"}, {"style": "07", "ref": "results/breadth_score_match_style07_kp1_seed64_reference.png", "gen": "results/breadth_score_match_style07_kp1_seed64.png"}, {"style": "15", "ref": "results/breadth_score_match_style15_kp2_seed64_reference.png", "gen": "results/breadth_score_match_style15_kp2_seed64.png"}, {"style": "34", "ref": "results/breadth_score_match_style34_kp0_seed64_reference.png", "gen": "results/breadth_score_match_style34_kp0_seed64.png"}, {"style": "04", "ref": "results/bench40_score_match_style04_kp2_seed64_reference.png", "gen": "results/bench40_score_match_style04_kp2_seed64.png"}, {"style": "30", "ref": "results/bench40_score_match_style30_kp3_seed64_reference.png", "gen": "results/bench40_score_match_style30_kp3_seed64.png"}, {"style": "36", "ref": "results/breadth_score_match_style36_kp1_seed64_reference.png", "gen": "results/breadth_score_match_style36_kp1_seed64.png"}];
+// simple shuffle (fixed-ish per session; Date is fine in a browser)
+const order = PAIRS.map((_,i)=>i).sort(()=>Math.random()-0.5);
+const ratings = {}; let pos=0, cur={};
+const scales=document.querySelectorAll('.scale');
+scales.forEach(s=>{for(let v=1;v<=5;v++){const b=document.createElement('button');b.textContent=v;b.onclick=()=>{[...s.children].forEach(c=>c.classList.remove('sel'));b.classList.add('sel');cur[s.dataset.q]=v;check();};s.appendChild(b);}});
+function check(){document.getElementById('next').disabled=!(cur.style&&cur.content&&cur.overall);}
+function load(){const p=PAIRS[order[pos]];document.getElementById('ref').src='../'+p.ref;document.getElementById('gen').src='../'+p.gen;
+ document.getElementById('prog').textContent=`Pair ${pos+1} / ${PAIRS.length}`;cur={};scales.forEach(s=>[...s.children].forEach(c=>c.classList.remove('sel')));check();}
+document.getElementById('next').onclick=()=>{const p=PAIRS[order[pos]];ratings[p.style]={style:cur.style,content:cur.content,overall:cur.overall};pos++;
+ if(pos>=PAIRS.length){document.getElementById('card').style.display='none';document.getElementById('done').style.display='block';
+   document.getElementById('summary').textContent=JSON.stringify(ratings,null,1);}else load();};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify({ratings,ts:new Date().toISOString()},null,1)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='style_ratings.json';a.click();};
+load();
+</script></body></html>

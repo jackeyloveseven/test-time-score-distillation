@@ -1,78 +1,64 @@
 # Documentation Map
 
-Status date: 2026-07-14. Documents are classified so historical research notes
-cannot silently override the current method.
+Status date: 2026-07-23.
+
+The active documentation surface is intentionally small. Historical experiment
+logs and pre-TSD designs remain available for provenance, but they do not define
+the current method, claims, or queue.
 
 ## Read in This Order
 
-1. `PROJECT_STATE.md`: shortest current truth.
-2. `AGENT_HANDOFF.md`: complete operational takeover.
-3. `RESULTS_CATALOG.md`: paper-facing metrics and provenance.
-4. `environment.md`: server and Mac environments.
-5. `todo.md`: active queue.
-6. `experiment_plan.md`: remaining matched protocol.
-7. `../AAAI/main.tex`: only source of truth for paper prose.
+1. `PROJECT_STATE.md` - shortest authoritative project state.
+2. `HANDOFF.md` - operational takeover, current artifacts, and resume commands.
+3. `todo.md` - prioritized remaining work.
+4. `EXPERIMENT_PLAN.md` - exact unfinished validation matrix.
+5. `environment.md` - runtime, model, evaluator, and coexistence rules.
+6. `../AAAI/main.tex` - canonical paper prose.
+7. `../AAAI/supplement.tex` - canonical supplementary prose.
+8. `../AAAI/figures/FIGURE_WORKFLOW.md` - mandatory figure-package contract.
 
-## Current Documents
+## Active Documents
 
-| document | purpose |
+| Document | Purpose |
 |---|---|
-| `PROJECT_STATE.md` | current method, decisions, validated/unvalidated claims |
-| `AGENT_HANDOFF.md` | from-zero operational guide |
-| `RESULTS_CATALOG.md` | compact canonical numbers and artifact paths |
-| `environment.md` | H200 runtime, models, evaluators, Mac limitations |
-| `LOCAL_MAC_HANDOFF.md` | local workspace layout and usage |
-| `todo.md` | prioritized active work |
-| `experiment_plan.md` | matched experiment matrix and reporting contract |
-| `formal25_teacher_comparison.md` | formal GoalCarrier evidence ledger |
-| `carrier_anchored_score_residual.md` | carrier implementation note |
-| `paper_story_goal_carrier_flow.md` | motivation and future causal-probe blueprint |
-| `full_paper_draft.md` | short Markdown synopsis; points to LaTeX truth |
-
-## Experiment Ledgers
-
-These contain useful chronological detail but do not define current status:
-
-| document | scope |
-|---|---|
-| `with_style_teacher_score_plan.md` | native teacher, CA/DMD, and long experiment ledger |
-| `score_residual_distillation_plan.md` | optional offline student history |
-| `klein9b_probe_notes.md` | probe and adapter experiment chronology |
-| `profile_fields_notes.md` | field profiling notes |
-| `reference_data_and_dmd_inventory.md` | model/data/backend inventory |
-
-## Historical Design Documents
-
-The following are retained for provenance. Each now carries a status banner.
-Do not use their old priorities as current instructions:
-
-- `adaptation_notes.md`
-- `migration_plan.md`
-- `technical_plan.md`
-- `residual_optimization_plan.md`
-- `klein9b_probe_plan.md`
-- `reference_kv_score_distillation_spec.md`
+| `PROJECT_STATE.md` | Current method, evidence, limitations, PDF and figure status |
+| `HANDOFF.md` | From-zero operational continuation guide |
+| `todo.md` | Current P0/P1/P2 queue |
+| `EXPERIMENT_PLAN.md` | Multi-seed and reverse-shield protocols still to run |
+| `LOOP_PLAN.md` | Current autonomous loop and GPU-resume policy |
+| `environment.md` | Runtime and reproducibility contract |
+| `research/PAPER_PITCH.md` | Reviewer-facing paper story and claim/evidence map |
+| `research/VLM_JUDGE_FINDINGS.md` | Consolidated Agent benchmark validity findings |
 
 ## Paper Documents
 
 ```text
-../AAAI/main.tex                 paper prose truth
-../AAAI/supplement.tex           optional student and reward diagnostics
+../AAAI/main.tex                 canonical main paper
+../AAAI/supplement.tex           canonical supplementary material
 ../AAAI/references.bib           bibliography
-../AAAI/reproducibility.tex      AAAI checklist
-../AAAI/SUBMISSION_READINESS.md  evidence and format gates
-../AAAI/BUILD.md                 compile/validation commands
+../AAAI/README.md                paper-level status
+../AAAI/BUILD.md                 compile and validation commands
+../AAAI/SUBMISSION_READINESS.md  evidence and submission gates
+../AAAI/figures/README.md        active figure inventory
 ```
 
-## Trial Documents
+Current compiled outputs are `AAAI/main.pdf` and `AAAI/supplement.pdf`, both
+eight US-Letter pages as of 2026-07-23.
 
-`../trial/online_rl_critic/README.md` is the index for the isolated reward
-trial. `PROTOCOL_AUDIT.md` is the final corrected result. Earlier `RESULTS`,
-`GRPO_RESULTS`, and `SAME_STATE_RESULTS` files are chronological diagnostics.
+## Historical Material
 
-## Generated Evidence
+- `docs/_archive/` contains superseded handoffs, plans, and design records.
+- `docs/research/PAPER_MAIN_20260721.md` is a historical Markdown draft; use
+  `AAAI/main.tex` for current wording and numbers.
+- `AAAI/main_backup_pre_20260721.tex` and `AAAI/main_v1_kv_frozen.tex` are
+  archival LaTeX snapshots and must not be edited into the submission.
+- `AAAI/figures/pipeline/` and `AAAI/figs/_archive/` are visual archives.
 
-Raw results are present on `ubuntu-107` under `results/` and ignored by Git.
-The Mac workspace is documentation-only and does not mirror the 1.7 GB result
-tree. Use `RESULTS_CATALOG.md` for compact offline access; inspect raw artifacts
-on the server when needed.
+## Source-of-Truth Rule
+
+When documents disagree, use this order:
+
+1. current generated data and manifests;
+2. `AAAI/main.tex` and `AAAI/supplement.tex`;
+3. `PROJECT_STATE.md` and `HANDOFF.md`;
+4. historical research notes and logs.

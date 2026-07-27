@@ -1,33 +1,80 @@
-\section*{AAAI Reproducibility Checklist}
+\section{Reproducibility Checklist}
 \small
 
-\textbf{General.} (Yes) The paper states the main claims, assumptions, and
-method boundary; provides a conceptual outline and executable pseudocode; and
-distinguishes the online method from optional student and DMD extensions.
+This paper follows the AAAI reproducibility checklist. Unless noted, section and
+figure references point to the main paper; ``released code'' refers to the
+anonymized code and manifests accompanying this submission.
 
-\textbf{Theory.} (Partial) The score/velocity conversion and conditional
-log-density-ratio interpretation are derived in the main paper. We make no new
-convergence theorem or general optimality claim.
+\paragraph{General.}
+\begin{itemize}\itemsep1pt
+\item Conceptual outline / pseudocode of the AI methods introduced: \textbf{yes}
+(Method \S3; pseudocode in the Algorithm subsection of this appendix).
+\item Delineates opinions / hypotheses / speculation from objective facts:
+\textbf{yes} (the regularization substitution is stated as an empirical finding,
+not a theorem; boundaries stated in Limitations).
+\item Well-marked pedagogical references for less-familiar readers: \textbf{yes}
+(rectified flow, classifier-free guidance, distribution-matching distillation,
+and classical style transfer are cited).
+\end{itemize}
 
-\textbf{Data.} (Partial) Reference paths, prompts, style/prompt identifiers,
-and seeds are recorded in machine-readable manifests. The current controlled
-reference set is described; licensing and public redistribution status must be
-confirmed before release.
+\paragraph{Theoretical contributions.} The paper makes no formal theoretical
+contribution (\textbf{no}). Its claims are empirical by design; the
+velocity-contrast$=$score-difference relation used in \S3 is a derivation from
+standard tools with citations, and the reverse-process regularization is
+explicitly an empirical finding (\S Conclusion), not a theorem. Accordingly the
+theorem/proof items are not applicable; the corresponding empirical evidence
+(reverse-step ablation, fake-score negative study, rejected SRSD metric) and its
+code are included.
 
-\textbf{Code and computation.} (Yes) Source code for the proposed objective,
-baselines, evaluation, negative diagnostics, and manifest construction is
-included in the code appendix. Commands specify model roots, 512-pixel
-resolution, 25 outer steps, dynamic 5-to-2 inner iterations, start time 1000,
-AdamW, zero weight decay, loss weights, and random seeds. Hardware and software
-environment details are recorded in the repository documentation.
+\paragraph{Datasets.} The paper relies on a fixed style-reference set (\textbf{yes}).
+\begin{itemize}\itemsep1pt
+\item Motivation for the selected data: \textbf{yes} (a media-diverse
+40-reference library isolates medium transfer across style locality).
+\item Novel data included in a data appendix: \textbf{partial} (style IDs,
+prompts, seeds, candidate order, and evaluator inputs are retained in
+machine-readable manifests in the released code; reference images are model-
+generated and described).
+\item Novel data public on publication with a license: \textbf{partial}
+(intended; redistribution and license terms to be finalized before release).
+\item Existing-literature datasets cited / public: \textbf{NA} (no external
+benchmark dataset is used; the reference set and content prompt are constructed
+here).
+\item Non-public data described in detail: \textbf{yes} (all style IDs, the
+content prompt, seeds, and evaluator inputs are specified).
+\end{itemize}
 
-\textbf{Results.} (Yes) The number of runs underlying every table is stated.
-Matched comparisons share reference, prompt, seed, initial state, and evaluator.
-Mean and standard deviation are reported where available; single-run and
-three-pair results are explicitly labeled. Checkpoint hashes and preprocessing
-for CSD, CLIP, DINO, and VGG evaluators are stored with the result summaries.
-
-\textbf{Limitations.} (Yes) The paper identifies the small matched benchmark,
-missing broad human evaluation, layout/style trade-off, and the distinction
-between noisy-state reward and final-trajectory best-of-$N$.
+\paragraph{Computational experiments.} The paper includes computational
+experiments (\textbf{yes}).
+\begin{itemize}\itemsep1pt
+\item Number and range of (hyper-)parameter values tried during development:
+\textbf{yes} (the parameter study sweeps step count, inner iterations, step
+size, and normalization; grids in this appendix).
+\item Pre-processing code included: \textbf{partial} (generation and evaluation
+code is in the released code; pre-processing is minimal).
+\item All source code for running and analyzing experiments included:
+\textbf{partial} (released with the submission; generation, matched native
+baseline, sweeps, the reverse-step ablation, Agent evaluation, aggregation, and
+figure/table builds are covered).
+\item Source code public on publication with a license: \textbf{yes} (intended).
+\item New-method code has comments referencing the paper: \textbf{partial}.
+\item Method for setting seeds described: \textbf{yes} (a single fixed seed, 65,
+is used throughout and stated).
+\item Computing infrastructure specified: \textbf{partial} (single-GPU
+inference, bf16, AdamW with zero latent weight decay; exact library versions are
+pinned in the released environment).
+\item Evaluation metrics formally described with motivation: \textbf{yes} (CSD,
+CLIP-T, and layout-leak are defined and motivated as separable style / subject /
+composition axes; \S4).
+\item Number of algorithm runs per reported result stated: \textbf{yes}
+(fixed-seed; one run per task$\times$style cell over $n=40$ references).
+\item Analysis beyond single-number summaries: \textbf{yes} (per-style values,
+cross-style SD, 95\% style-bootstrap intervals, 40/40 paired-win counts, and the
+CSD--CLIP-T frontier).
+\item Significance judged with appropriate statistical tests: \textbf{partial}
+(style-bootstrap confidence intervals, paired-win counts, and cross-Agent
+correlation statistics; we do not run a formal null-hypothesis test on the main
+metric and we do not claim random-seed uncertainty).
+\item All final (hyper-)parameters listed: \textbf{yes} (per-mode step count,
+inner iterations, step size, and normalization are tabulated in this appendix).
+\end{itemize}
 \normalsize

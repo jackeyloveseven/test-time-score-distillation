@@ -1,0 +1,62 @@
+{
+  "pair_id": "ST_00001",
+  "content_image": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
+  "style_image": "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400",
+  "output_image": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400",
+  "dim_results": {
+    "art_style": {
+      "art_style_l1": "Classical/Traditional",
+      "art_style_l2": "Baroque",
+      "confidence": 0.95,
+      "reasoning": "The work features extremely smooth, invisible brushwork and fine blending that prioritizes a high degree of optical realism. The use of dramatic chiaroscuro lighting creates deep volumetric forms against a dark, receding background, which is a hallmark of the 17th-century traditional style. Every edge is meticulously defined with no expressive distortion or loose application of paint."
+    },
+    "technique": {
+      "technique": "Oil Paint",
+      "confidence": 0.98,
+      "reasoning": "The image exhibits the rich color depth and subtle blending characteristic of traditional oil glazes, along with visible fine craquelure patterns in the dark background and on flower petals. There are also indications of physical impasto in the bright highlights of the white and red flowers, which is typical of layered physical media."
+    },
+    "color_tone": {
+      "color_tone": "Warm Tone",
+      "confidence": 0.95,
+      "reasoning": "The image is dominated by golden hour lighting, which casts prominent orange, yellow, and warm brown hues across the subject's skin and hair. These warm tones define the overall atmosphere, creating a cozy and glowing palette despite the neutral black-and-white stripes of the shirt."
+    },
+    "lighting": {
+      "lighting": "Natural/Ambient",
+      "confidence": 0.95,
+      "reasoning": "The image utilizes soft, diffused outdoor light characteristic of golden hour or late afternoon, creating gentle gradients on the face. There is a lack of hard shadows, and the illumination appears to come from the ambient sky and low sun, producing a warm and organic feel."
+    },
+    "content_type": {
+      "content_type": "Portrait/Face",
+      "confidence": 1.0,
+      "reasoning": "The image is a head-and-shoulders portrait of a woman, where her face is the clear and dominant central focus. The background is blurred into a soft bokeh, ensuring that the human subject occupies the most visual weight and importance in the frame."
+    },
+    "realism": {
+      "realism": "Photorealistic",
+      "confidence": 0.98,
+      "reasoning": "The image adheres to strict optical physics, featuring natural depth of field, physically accurate lighting, and realistic skin texture. Anatomical proportions are grounded in reality without any illustrative distortion or stylization typical of digital paintings."
+    },
+    "transfer_complexity": {
+      "transfer_complexity": "fine-grained",
+      "realism_gap": "Photorealistic → Photorealistic",
+      "domain_pair": "Photograph → Oil Painting",
+      "confidence": 1.0,
+      "reasoning": "The content image is a photograph and the style is a complex Dutch Golden Age oil painting, representing a high textural and color domain gap. However, the output image is identical to the content image, showing zero transfer of brushwork, color palette, or lighting, indicating a total failure in style application."
+    }
+  },
+  "style_tags": {
+    "art_style_l1": "Classical/Traditional",
+    "art_style_l2": "Baroque",
+    "technique": "Oil Paint",
+    "color_tone": "Warm Tone",
+    "lighting": "Natural/Ambient",
+    "realism": "Photorealistic"
+  },
+  "content_tags": {
+    "content_type": "Portrait/Face"
+  },
+  "transfer_tags": {
+    "transfer_complexity": "fine-grained",
+    "realism_gap": "Photorealistic → Photorealistic",
+    "domain_pair": "Photograph → Oil Painting"
+  }
+}
