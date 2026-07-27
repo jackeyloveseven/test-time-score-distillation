@@ -690,7 +690,8 @@ latent step. Its non-obvious ingredient is an empirical \emph{regularization
 substitution}: interleaving bounded updates with the frozen reverse trajectory
 removes any need for a learned fake-score network in the evaluated regime.
 Across 40 styles this lifts mean CSD by 2.48--2.69$\times$ over the same model's
-strongest native edit, at a modest subject-alignment cost.
+strongest native edit, at a modest subject-alignment cost --- with no training,
+no auxiliary fake-score network, and no mask or segmentation.
 
 \newpage
 \setlength{\bibsep}{4.5pt}
