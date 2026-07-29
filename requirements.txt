@@ -1,0 +1,15 @@
+torch>=2.8
+torchvision>=0.23
+transformers>=4.57,<5
+accelerate>=1.10
+safetensors>=0.6
+einops>=0.8
+numpy>=2.0
+Pillow>=11
+scipy>=1.15
+matplotlib>=3.9
+tqdm>=4.66
+requests>=2.32
+open-clip-torch>=2.32
+lpips>=0.1.4
+huggingface-hub[cli]>=0.34

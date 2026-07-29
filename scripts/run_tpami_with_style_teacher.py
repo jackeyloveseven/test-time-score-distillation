@@ -261,9 +261,9 @@ STYLE_GRAD_RMS_CALIBRATION_EPS = 1e-12
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--diffsynth-root", default="/mnt/local/yzh/prog/DiffSynth-Studio")
-    parser.add_argument("--main-model-root", default="/mnt/local/klein9b")
-    parser.add_argument("--teacher-model-root", default="/mnt/local/klein9b-base")
+    parser.add_argument("--diffsynth-root", default="third_party/DiffSynth-Studio")
+    parser.add_argument("--main-model-root", default="models/klein9b")
+    parser.add_argument("--teacher-model-root", default="models/klein9b-base")
     parser.add_argument(
         "--style-root",
         default="/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty",
@@ -300,7 +300,7 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help=(
             "Scale the frozen scheduler displacement after each denoise prediction: "
-            "z <- z + rho * (scheduler.step(...) - z). rho=1 preserves the original "
+            "z <- z + rho * (scheduler reverse step - z). rho=1 preserves the original "
             "reverse process exactly; rho=0 suppresses its state update while retaining "
             "the scheduler call for matched accounting."
         ),
@@ -330,7 +330,7 @@ def parse_args() -> argparse.Namespace:
         ],
     )
     parser.add_argument("--fake-score-backend", default="none", choices=["none", "dmd2_guidance", "klein_full_fake"])
-    parser.add_argument("--fake-model-root", default="/mnt/local/klein4b-base")
+    parser.add_argument("--fake-model-root", default="models/klein4b-base")
     parser.add_argument("--fake-vram-limit-gb", type=float, default=None)
     parser.add_argument("--fake-optimizer", default="sgd", choices=["sgd", "adamw"])
     parser.add_argument("--fake-lr", type=float, default=1e-4)

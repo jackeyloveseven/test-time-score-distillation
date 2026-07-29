@@ -182,7 +182,7 @@ class FakeScoreBackend(Protocol):
 
 @dataclass(frozen=True)
 class KleinFullFakeBackendConfig:
-    fake_model_root: str = "/mnt/local/klein4b-base"
+    fake_model_root: str = "models/klein4b-base"
     optimizer: str = "sgd"
     lr: float = 1e-4
     grad_clip_norm: float | None = None
@@ -213,7 +213,7 @@ class KleinFullFakeBackendConfig:
 
 @dataclass(frozen=True)
 class DMD2BackendConfig:
-    diffsynth_root: str = "/mnt/local/yzh/prog/DiffSynth-Studio"
+    diffsynth_root: str = "third_party/DiffSynth-Studio"
     env_name: str = "yzh-dmd"
     guidance_model_type: str = "lora"
     guidance_lora_strength: float = 1.0

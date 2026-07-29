@@ -19,12 +19,12 @@ but it is NOT user-configurable through ``__call__``, only by mutating the unit 
 in-process. ``Flux2Unit_Qwen3PromptEmbedder`` (Qwen3 text encoder, "z_image_text_encoder") is
 the OTHER one, and per this checkpoint's own ``model_index.json``
 (``"_class_name": "Flux2KleinPipeline"``, ``"text_encoder": ["transformers",
-"Qwen3ForCausalLM"]``) this is the one actually used for ``/mnt/local/klein9b-base``. Its
+"Qwen3ForCausalLM"]``) this is the one actually used for ``models/klein9b-base``. Its
 ``get_qwen3_prompt_embeds`` (flux2_image.py:311-364) hardcodes
 ``messages = [{"role": "user", "content": single_prompt}]`` (flux2_image.py:329) -- there is
 NO system_message attribute or parameter anywhere on this unit. This is true even though the
 checkpoint's own Qwen chat template
-(``/mnt/local/klein9b-base/tokenizer/chat_template.jinja``) has first-class support for a
+(``models/klein9b-base/tokenizer/chat_template.jinja``) has first-class support for a
 leading "system" role turn (``{%- if messages[0].role == 'system' %} ... {%- endif %}``) --
 DiffSynth's Qwen3 embedder simply never uses it.
 
@@ -50,7 +50,7 @@ the in-memory system-role patch remains available as a next lever.
 
 Model loading reuses ``load_flux2_pipe`` from scripts/run_tpami_with_style_teacher.py exactly
 as ``diagnostic_kleinedit_baseline.py`` does (bf16, cpu_offload, DIFFSYNTH_ATTENTION_IMPLEMENTATION
-forced to "torch", DiffSynth root pinned to /mnt/local/yzh/prog/DiffSynth-Studio). Does NOT
+forced to "torch", DiffSynth root pinned to third_party/DiffSynth-Studio). Does NOT
 touch method code (src/*.py); only this standalone script.
 """
 
@@ -82,12 +82,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 # Match run_tpami_with_style_teacher.py's default --diffsynth-root exactly.
-DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
+DIFFSYNTH_ROOT = "third_party/DiffSynth-Studio"
 if DIFFSYNTH_ROOT not in sys.path:
     sys.path.insert(0, DIFFSYNTH_ROOT)
 
 STYLE_DIR = Path("/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty")
-MODEL_ROOT = Path("/mnt/local/klein9b-base")
+MODEL_ROOT = Path("models/klein9b-base")
 VRAM_LIMIT_GB = 38.0
 HEIGHT = 512
 WIDTH = 512

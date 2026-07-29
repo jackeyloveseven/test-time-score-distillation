@@ -36,8 +36,8 @@ from src.klein9b_loading import model_config_offload_kwargs, model_loading_mode
 from src.residuals import compute_normal_velocity, compute_styled_velocity
 from src.adapter_runtime import ResidualAdapterRuntime
 
-DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
-KLEIN9B_ROOT = "/mnt/local/klein9b"
+DIFFSYNTH_ROOT = "third_party/DiffSynth-Studio"
+KLEIN9B_ROOT = "models/klein9b"
 STYLE_IMAGES_ROOT = "/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty"
 
 PROMPTS = {

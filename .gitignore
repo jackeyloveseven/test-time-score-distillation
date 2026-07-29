@@ -19,3 +19,8 @@ scripts/vlm_judge_calibration.py
 scripts/vlm_benchmark.py
 stylebench/benchmark.py
 /stylebench/benchmark.py
+
+# Local model weights (keep only the layout note).
+models/*
+!models/README.md
+third_party/

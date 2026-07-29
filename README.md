@@ -64,13 +64,13 @@ packages, 39 references cited. Anonymous submission. Main-PDF deadline
 ## Repository Boundaries
 
 ```text
-server repo: /home/ubuntu/chengyanli/items/style_residual_distill_20260709
+server repo: style_score/style_residual_distill_20260709
 ```
 
 The original Hyperion implementation is read-only:
 
 ```text
-/home/ubuntu/chengyanli/items/save/attention_20260426_090948
+../../test_time_distillation/save/attention_20260426_090948
 ```
 
 Never edit, overwrite, clean, or commit from the original directory. Style
@@ -110,19 +110,48 @@ All exact numbers live in `AAAI/main.tex` and `AAAI/supplement/data/`.
 
 ## Quick Verification
 
+Create an isolated environment and install the dependencies first:
+
 ```bash
-cd /home/ubuntu/chengyanli/items/style_residual_distill_20260709
-/home/ubuntu/chengyanli/flux/bin/python3 -m py_compile src/*.py scripts/*.py
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+# Install the PyTorch wheel matching the local CUDA driver first if needed.
+python -m pip install -r requirements.txt
+git clone https://github.com/modelscope/DiffSynth-Studio.git third_party/DiffSynth-Studio
+python -m pip install -e third_party/DiffSynth-Studio
+hf auth login  # required for gated Black Forest Labs checkpoints
+bash scripts/download_models.sh core
+```
+
+`core` downloads the frozen generator and teacher from
+`black-forest-labs/FLUX.2-klein-9B` and
+`black-forest-labs/FLUX.2-klein-base-9B`. `bash scripts/download_models.sh all`
+also downloads the optional 4B critic and CLIP scorer. Expected paths:
+
+```text
+models/klein9b/       # main generator
+models/klein9b-base/  # paper teacher / native editor
+models/klein4b-base/  # optional legacy fake critic
+models/clip/          # optional CLIP evaluation
+```
+
+```bash
+cd style_score/style_residual_distill_20260709
+python -m py_compile src/*.py scripts/*.py
 ```
 
 Environment: Python 3.12, PyTorch 2.8.0+cu128, one NVIDIA H200. Each TSD
 generation is single-GPU, bf16, ~24 GB VRAM, ~1 min.
 
+Place model weights under `models/` and DiffSynth-Studio under
+`third_party/DiffSynth-Studio/` as shown above.
+
 ## Reproduce One TSD Output (ca_only)
 
 ```bash
-PY=/home/ubuntu/chengyanli/flux/bin/python3
-MODEL_ROOT=/path/to/frozen/rectified-flow/image-text/checkpoint  # local backbone
+PY=python
+MODEL_ROOT=models/klein9b-base
 # Semantic: --num-steps 25 --pseudo-step-size 0.05 ; Global: --num-steps 8 --pseudo-step-size 0.12
 $PY scripts/run_tpami_with_style_teacher.py \
   --style-id 27 --prompt-id kp0 --seed 65 \

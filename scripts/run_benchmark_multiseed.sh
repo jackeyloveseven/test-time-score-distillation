@@ -49,8 +49,8 @@ run_tsd_cell() {
     --disable-slt --adain-alpha 0 --disable-final-adain \
     --without-prompt-mode full_style_prompt --pseudo-grad-normalization rms \
     --reverse-step-strength 1 \
-    --main-model-root /mnt/local/klein9b-base \
-    --teacher-model-root /mnt/local/klein9b-base \
+    --main-model-root models/klein9b-base \
+    --teacher-model-root models/klein9b-base \
     --vram-limit-gb 38 --main-vram-limit-gb 38 --teacher-vram-limit-gb 38 \
     --out-prefix "$prefix" >"$log" 2>&1
   test -f "$png"

@@ -8,7 +8,7 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 NEED=40000
 STY=/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty
-COMMON="--style-mode ca_only --cfg-scale 7 --lambda-ca 1.0 --pseudo-step-size 0.05 --num-steps 25 --iters 5 --start-time 1000 --latent-optimizer adamw --latent-weight-decay 0 --disable-slt --adain-alpha 0 --disable-final-adain --seed 65 --without-prompt-mode full_style_prompt --pseudo-grad-normalization rms --main-model-root /mnt/local/klein9b-base --teacher-model-root /mnt/local/klein9b-base --vram-limit-gb 38 --main-vram-limit-gb 38 --teacher-vram-limit-gb 38 --out-prefix q25s"
+COMMON="--style-mode ca_only --cfg-scale 7 --lambda-ca 1.0 --pseudo-step-size 0.05 --num-steps 25 --iters 5 --start-time 1000 --latent-optimizer adamw --latent-weight-decay 0 --disable-slt --adain-alpha 0 --disable-final-adain --seed 65 --without-prompt-mode full_style_prompt --pseudo-grad-normalization rms --main-model-root models/klein9b-base --teacher-model-root models/klein9b-base --vram-limit-gb 38 --main-vram-limit-gb 38 --teacher-vram-limit-gb 38 --out-prefix q25s"
 STYLES=(23 09 10 00 34)
 PROMPTS=(kp3 kp4)
 echo "[q25s] START $(date +%F_%H:%M:%S)"

@@ -17,8 +17,8 @@ gen() {  # mode sid  (seed fixed 202)
     --disable-slt --adain-alpha 0 --disable-final-adain \
     --without-prompt-mode full_style_prompt --pseudo-grad-normalization rms \
     --reverse-step-strength 1 \
-    --main-model-root /mnt/local/klein9b-base \
-    --teacher-model-root /mnt/local/klein9b-base \
+    --main-model-root models/klein9b-base \
+    --teacher-model-root models/klein9b-base \
     --vram-limit-gb 38 --main-vram-limit-gb 38 --teacher-vram-limit-gb 38 \
     --out-prefix "$prefix" >"$OUTDIR/${prefix}_style${sid}_seed${seed}.retry.log" 2>&1
   test -f "$png" && echo "[ok] $png" || echo "[FAIL] $png"

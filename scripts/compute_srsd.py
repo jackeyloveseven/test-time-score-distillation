@@ -11,7 +11,7 @@ CA-contrast machinery the method itself is built on:
         g = with_velocity - without_velocity        <- exactly the CA term the ca_only style_mode
         uses as its style-loss driver in scripts/run_tpami_with_style_teacher.py (see that file's
         "elif args.style_mode == 'ca_only':" branch, which computes the *same* triplet the *same*
-        way at the *same* single-model config: main==teacher==/mnt/local/klein9b-base).
+        way at the *same* single-model config: main==teacher==models/klein9b-base).
 
 Idea (SRSD): if a generated image x already carries reference R's style, the frozen model has
 little style left to add on top of x, so the norm of that CA residual g, evaluated ON x (not on
@@ -57,8 +57,8 @@ from src.native_edit_teacher import (  # noqa: E402
     prepare_edit_condition,
 )
 
-DIFFSYNTH_ROOT_DEFAULT = "/mnt/local/yzh/prog/DiffSynth-Studio"
-MODEL_ROOT_DEFAULT = "/mnt/local/klein9b-base"  # single model, main==teacher (per task spec)
+DIFFSYNTH_ROOT_DEFAULT = "third_party/DiffSynth-Studio"
+MODEL_ROOT_DEFAULT = "models/klein9b-base"  # single model, main==teacher (per task spec)
 STYLE_ROOT_DEFAULT = "/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty"
 MANIFEST_CSV_DEFAULT = (
     "/tmp/claude-1000/-home-ubuntu-chengyanli/0da1ecad-87ce-4e83-abe2-cbcdbb020c1e/"

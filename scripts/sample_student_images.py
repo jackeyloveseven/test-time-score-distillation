@@ -25,8 +25,8 @@ from src.residuals import compute_normal_velocity, compute_styled_velocity
 from src.score_student_runtime import ScoreResidualStudentRuntime
 
 
-DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
-KLEIN9B_ROOT = "/mnt/local/klein9b"
+DIFFSYNTH_ROOT = "third_party/DiffSynth-Studio"
+KLEIN9B_ROOT = "models/klein9b"
 STYLE_IMAGES_ROOT = "/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty"
 
 PROMPTS = {

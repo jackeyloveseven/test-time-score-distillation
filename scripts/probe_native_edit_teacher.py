@@ -30,8 +30,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.flux2_score import velocity_delta_to_score_delta
 
-DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
-MODEL_ROOT = "/mnt/local/klein9b-base"
+DIFFSYNTH_ROOT = "third_party/DiffSynth-Studio"
+MODEL_ROOT = "models/klein9b-base"
 STYLE_ROOT = "/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty"
 
 PROMPTS = {

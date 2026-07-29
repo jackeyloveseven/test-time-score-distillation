@@ -48,10 +48,10 @@ PROMPT_TEMPLATE = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--diffsynth-root", default="/mnt/local/yzh/prog/DiffSynth-Studio")
+    parser.add_argument("--diffsynth-root", default="third_party/DiffSynth-Studio")
     parser.add_argument("--manifest-jsonl", required=True)
-    parser.add_argument("--fake-model-root", default="/mnt/local/klein9b-base")
-    parser.add_argument("--teacher-model-root", default="/mnt/local/klein9b-base")
+    parser.add_argument("--fake-model-root", default="models/klein9b-base")
+    parser.add_argument("--teacher-model-root", default="models/klein9b-base")
     parser.add_argument("--fake-vram-limit-gb", type=float, default=None)
     parser.add_argument("--teacher-vram-limit-gb", type=float, default=None)
     parser.add_argument("--fake-optimizer", default="sgd", choices=["sgd", "adamw"])

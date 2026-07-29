@@ -2,7 +2,7 @@
 
 This is a comparison baseline for the ca_only (Test-Time Score Distillation) method in
 ``scripts/run_tpami_with_style_teacher.py``. It does NOT touch method code. It feeds the
-frozen klein (FLUX.2 [klein] 9B, /mnt/local/klein9b-base) DiffSynth ``Flux2ImagePipeline``
+frozen klein (FLUX.2 [klein] 9B, models/klein9b-base) DiffSynth ``Flux2ImagePipeline``
 directly with (style image as edit_image + an edit-prompt text) and runs the pipeline's own
 standard CFG-guided denoise loop -- no latent optimization, no CA pseudo-gradient, no
 attention-injection, nothing method-specific.
@@ -61,12 +61,12 @@ if str(REPO_ROOT) not in sys.path:
 # NOT what the method used -- see report). Must be on sys.path before any `from diffsynth...`
 # import (those are all deferred inside function bodies in run_tpami_with_style_teacher.py, so
 # this is safe to do before importing its helpers).
-DIFFSYNTH_ROOT = "/mnt/local/yzh/prog/DiffSynth-Studio"
+DIFFSYNTH_ROOT = "third_party/DiffSynth-Studio"
 if DIFFSYNTH_ROOT not in sys.path:
     sys.path.insert(0, DIFFSYNTH_ROOT)
 
 STYLE_DIR = Path("/home/ubuntu/chengyanli/items/save/attention_20260426_090948/sty")
-MODEL_ROOT = Path("/mnt/local/klein9b-base")
+MODEL_ROOT = Path("models/klein9b-base")
 VRAM_LIMIT_GB = 38.0
 HEIGHT = 512
 WIDTH = 512
